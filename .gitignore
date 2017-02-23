@@ -10,3 +10,4 @@ Cargo.lock
 /.project
 /.settings/
 /.README.md.html
+/rust-keylock.log

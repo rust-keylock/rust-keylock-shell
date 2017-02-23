@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["aston <astonbitecode@gmail.com>"]
 
 [dependencies]
-rust_keylock = { git = "https://github.com/rust-keylock/rust-keylock-lib" }
+rust_keylock = { git = "https://github.com/rust-keylock/rust-keylock-lib", tag = "v0.1.0" }
 log = "0.3"
 fern = "0.3"
 chrono = "0.2"
