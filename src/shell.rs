@@ -14,7 +14,7 @@ impl Editor for EditorImpl {
 	fn show_password_enter(&self) -> UserSelection {
 		clear();
 		let password = prompt_expect_any("Please provide your password: ", &get_secret_string_from_stdin);
-		let number = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin);
+		let number = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin, true);
 		UserSelection::ProvidedPassword(password, number)
 	}
 
@@ -27,8 +27,8 @@ impl Editor for EditorImpl {
 			self.show_change_password()
 		}
 		else {
-			let number1 = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin);
-			let number2 = prompt_expect_number("Please provide your favorite number once again: ", &get_secret_string_from_stdin);
+			let number1 = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin, true);
+			let number2 = prompt_expect_number("Please provide your favorite number once again: ", &get_secret_string_from_stdin, true);
 			if number1 != number2 {
 				let _ = prompt_expect_any("The provided numbers did not match! Press any key to try again", &get_secret_string_from_stdin);
 				self.show_change_password()
@@ -63,7 +63,7 @@ impl Editor for EditorImpl {
 			&Menu::ImportEntries => {
 				let path_input = prompt_expect_any("Please define the path: ", &get_string_from_stdin);
 				let password = prompt_expect_any("Please provide the password: ", &get_secret_string_from_stdin);
-				let number = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin);
+				let number = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin, true);
 				UserSelection::ImportFrom(path_input, password, number)
 			},
 			other => panic!("Menu '{:?}' cannot be used with Entries. Please, consider opening a bug to the developers.", other),
@@ -217,14 +217,18 @@ fn prompt_expect_any<'a, T>(message: & str, get_input: &T) -> String where T: Fn
 	get_input()
 }
 
-fn prompt_expect_number<'a, T>(message: & str, get_input: &T) -> usize where T: Fn() -> String {
+fn prompt_expect_number<'a, T>(message: & str, get_input: &T, hide_input_on_error: bool) -> usize where T: Fn() -> String {
 	let input = prompt_expect_any(message, get_input);
 	match input.parse::<usize>() {
 		Ok(num) => num,
 		Err(_) => {
-			let error_message = format!("Error: Wrong input '{}'\n", &input);
+			let error_message = if hide_input_on_error {
+				"Error: Wrong input\n".to_string()
+			} else {
+				format!("Error: Wrong input '{}'\n", &input)
+			};
 		   	prompt(error_message.as_str());
-		   	prompt_expect_number(message, get_input)
+		   	prompt_expect_number(message, get_input, hide_input_on_error)
 		}
 	}
 }
@@ -312,7 +316,7 @@ mod test_shell {
 
     #[test]
     fn prompt_expect_number() {
-		let inner_input = super::prompt_expect_number("", &number_input);
+		let inner_input = super::prompt_expect_number("", &number_input, true);
 		assert!(inner_input == 33);
     }
 
