@@ -1,4 +1,4 @@
-use rust_keylock::{ Entry, Editor, UserSelection, Menu };
+use rust_keylock::{ Entry, Editor, UserSelection, Menu, Safe };
 use std::io::prelude::*;
 use std::io;
 use rpassword;
@@ -39,20 +39,20 @@ impl Editor for EditorImpl {
 		}
 	}
 
-	fn show_menu(&self, menu: &Menu, entries: &[Entry]) -> UserSelection {
+	fn show_menu(&self, menu: &Menu, safe: &Safe) -> UserSelection {
 		clear();
 		match menu {
 			&Menu::Main => show_main_menu(),
-			&Menu::EntriesList => show_entries_menu(entries),
-			&Menu::ShowEntry(index) => show_entry(index, entries),
+			&Menu::EntriesList => show_entries_menu(safe.get_entries()),
+			&Menu::ShowEntry(index) => show_entry(index, safe.get_entry_decrypted(index)),
 			&Menu::DeleteEntry(index) => delete_entry(index),
 			&Menu::NewEntry => {
 				let entry = Entry::empty();
-		        let new_entry = edit(&entry, &get_string_from_stdin);
+		        let new_entry = edit(entry, &get_string_from_stdin);
 				UserSelection::NewEntry(new_entry)
 			},
 			&Menu::EditEntry(index) => {
-				let ref selected_entry = entries[index];
+				let selected_entry = safe.get_entry_decrypted(index);
 				let new_entry = edit(selected_entry, &get_string_from_stdin);
 				UserSelection::ReplaceEntry(index, new_entry)
 			},
@@ -110,8 +110,7 @@ fn show_entries_menu(entries: &[Entry]) -> UserSelection {
 	}
 }
 
-fn show_entry(index: usize, entries: &[Entry]) -> UserSelection {
-	let ref entry = entries[index];
+fn show_entry(index: usize, entry: Entry) -> UserSelection {
 
 	println!("Name: {}", entry.name);
 	println!("Username: {}", entry.user);
@@ -175,7 +174,7 @@ fn prompt(message: &str) {
     io::stdout().flush().unwrap();
 }
 
-fn edit<T>(entry: &Entry, get_input: &T) -> Entry where T: Fn() -> String {
+fn edit<T>(entry: Entry, get_input: &T) -> Entry where T: Fn() -> String {
     prompt(format!("name ({}): ", entry.name).as_str());
 
 	let mut line = get_input();
@@ -291,7 +290,7 @@ mod test_shell {
 	#[test]
     fn edit_change() {
     	let entry = Entry::new("name".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string());
-    	let new_entry = super::edit(&entry, &dummy_input);
+    	let new_entry = super::edit(entry, &dummy_input);
     	assert!(new_entry.name == dummy_input());
     	assert!(new_entry.user == dummy_input());
     	assert!(new_entry.pass == dummy_input());
@@ -301,7 +300,7 @@ mod test_shell {
 	#[test]
     fn edit_leave_unchanged() {
     	let entry = Entry::new("name".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string());
-    	let new_entry = super::edit(&entry, &input_with_empty_string);
+    	let new_entry = super::edit(entry, &input_with_empty_string);
     	assert!(new_entry.name == "name");
     	assert!(new_entry.user == "user");
     	assert!(new_entry.pass == "pass");
@@ -331,7 +330,7 @@ mod test_shell {
 		}
     }
 
-		#[test]
+	#[test]
     fn sort_entries() {
     	let mut entries = vec!(
 		    Entry {
@@ -339,18 +338,21 @@ mod test_shell {
 	            user: "user1".to_string(),
 	            pass: "pass1".to_string(),
 	            desc: "desc1".to_string(),
+	            encrypted: false,
 	        },
 		    Entry {
 	            name: "Albatros".to_string(),
 	            user: "user2".to_string(),
 	            pass: "pass2".to_string(),
 	            desc: "desc2".to_string(),
+	            encrypted: false,
 	        },
 		    Entry {
 	            name: "Bear".to_string(),
 	            user: "user3".to_string(),
 	            pass: "pass3".to_string(),
 	            desc: "desc3".to_string(),
+	            encrypted: false,
 	        });
 
     	let editor = super::new();
