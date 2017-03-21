@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate rust_keylock;
 extern crate log;
 extern crate fern;
