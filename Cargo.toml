@@ -1,6 +1,6 @@
 [package]
 name = "rust_keylock_shell"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["aston <astonbitecode@gmail.com>"]
 description = "Shell access to the rust-keylock. rust-keylock is a password manager with goals to be Secure, Simple to use, Portable and Extensible."
 keywords = ["password", "manager", "safe", "encryption", "key"]
