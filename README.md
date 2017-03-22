@@ -9,8 +9,12 @@ Provided that Rust and Cargo are [installed](https://rustup.rs/), simply issue
 
 ```shell
 cargo install rust_keylock_shell
-
 ```
+
+Run the application issuing:
+
+`$ rust-keylock`
+
 
 # Build
 
