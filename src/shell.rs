@@ -15,7 +15,12 @@ impl Editor for EditorImpl {
 		clear();
 		let password = prompt_expect_any("Please provide your password: ", &get_secret_string_from_stdin);
 		let number = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin, true);
-		UserSelection::ProvidedPassword(password, number)
+		if password.len() == 0 {
+			prompt_expect_any("Password cannot be empty!", &get_secret_string_from_stdin);
+			self.show_password_enter()
+		} else {
+			UserSelection::ProvidedPassword(password, number)
+		}
 	}
 
 	fn show_change_password(&self) -> UserSelection {
@@ -74,7 +79,7 @@ impl Editor for EditorImpl {
 		show_exit_menu(contents_changed)
 	}
 
-	fn show_message(&self, message: &'static str) -> UserSelection {
+	fn show_message(&self, message: & str) -> UserSelection {
 		let expected_input = vec!("".to_string());
 		let _ = prompt_expect(message, &expected_input, &get_string_from_stdin, true);
 		UserSelection::Ack
@@ -232,7 +237,7 @@ fn prompt_expect_number<'a, T>(message: & str, get_input: &T, hide_input_on_erro
 	}
 }
 
-fn prompt_expect<'a, T>(message: &'static str, expected_inputs: &'a [String], get_input: &T, retry: bool) -> &'a String where T: Fn() -> String {
+fn prompt_expect<'a, T>(message: & str, expected_inputs: &'a [String], get_input: &T, retry: bool) -> &'a String where T: Fn() -> String {
 	let input = prompt_expect_any(message, get_input);
     let ref input_str = input.as_str();
     let mut found_iter = expected_inputs.iter().filter(|inp| {inp == &input_str});
