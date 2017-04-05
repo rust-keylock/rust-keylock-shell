@@ -7,9 +7,9 @@ extern crate rpassword;
 mod logger;
 mod shell;
 
-#[allow(dead_code)] 
+#[allow(dead_code)]
 fn main() {
-	logger::init_logging();
-	let shell = shell::new();
-	rust_keylock::execute(&shell);
+    logger::init_logging();
+    let shell = shell::new();
+    rust_keylock::execute(&shell);
 }
