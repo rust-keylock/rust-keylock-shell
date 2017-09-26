@@ -11,3 +11,5 @@ Cargo.lock
 /.settings/
 /.README.md.html
 /rust-keylock.log
+#IntelliJ
+/*.iml
