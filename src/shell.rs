@@ -46,7 +46,7 @@ impl Editor for EditorImpl {
         clear();
         match menu {
             &Menu::Main => show_main_menu(),
-            &Menu::EntriesList => show_entries_menu(safe.get_entries()),
+            &Menu::EntriesList(_) => show_entries_menu(safe.get_entries(), &safe.get_filter()),
             &Menu::ShowEntry(index) => show_entry(index, safe.get_entry_decrypted(index)),
             &Menu::DeleteEntry(index) => delete_entry(index),
             &Menu::NewEntry => {
@@ -88,7 +88,10 @@ fn clear() {
     print!("{}[2J", 27 as char);
 }
 
-fn show_entries_menu(entries: &[Entry]) -> UserSelection {
+fn show_entries_menu(entries: &[Entry], filter: &str) -> UserSelection {
+    if filter.len() > 0 {
+        println!("Entries filtered by '{}'\n\n", filter);
+    }
     // Print the entries
     for (index, entry) in entries.iter().enumerate() {
         println!("{}. {}", index + 1, entry.name);
@@ -99,16 +102,38 @@ fn show_entries_menu(entries: &[Entry]) -> UserSelection {
     for i in 1..entries.len() + 1 {
         expected_inputs.push(i.to_string());
     }
+
     expected_inputs.push("n".to_string());
     expected_inputs.push("r".to_string());
-    let input = prompt_expect("\nPlease select one of the Entries,\npress 'n' to crate a new Entry or\npress 'r' to return to the Main Menu: ",
-                              &expected_inputs,
-                              &get_string_from_stdin,
-                              true);
+    expected_inputs.push("f".to_string());
+
+    let message = if filter.len() == 0 {
+        r#"
+    Please select one of the Entries,
+    press 'n' to crate a new Entry or
+    press 'r' to return to the Main Menu.
+    press 'f' to filter the presented Entries: 
+ "#
+    } else {
+        expected_inputs.push("c".to_string());
+        r#"
+    Please select one of the Entries,
+    press 'n' to crate a new Entry,
+    press 'r' to return to the Main Menu,
+    press 'f' to filter the presented Entries, or
+    press 'c' to clear the currently applied filter: 
+"#
+    };
+    let input = prompt_expect(message, &expected_inputs, &get_string_from_stdin, true);
     // Handle user input
     match input.as_str() {
         "r" => UserSelection::GoTo(Menu::Main),
         "n" => UserSelection::GoTo(Menu::NewEntry),
+        "f" => {
+            let filter = prompt_expect_any("Filter by:", &get_string_from_stdin);
+            UserSelection::GoTo(Menu::EntriesList(filter))
+        }
+        "c" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
         selection => {
             let index = selection.parse::<usize>().unwrap() - 1;
             UserSelection::GoTo(Menu::ShowEntry(index))
@@ -135,7 +160,7 @@ Entry Menu:
     match inner_input.as_str() {
         "e" => UserSelection::GoTo(Menu::EditEntry(index)),
         "d" => UserSelection::GoTo(Menu::DeleteEntry(index)),
-        "r" => UserSelection::GoTo(Menu::EntriesList),
+        "r" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
         other => {
             panic!("Unexpected user selection '{:?}' in the Show Entry Menu. Please, consider opening a bug to the developers.",
                    other)
@@ -148,7 +173,7 @@ fn delete_entry(index: usize) -> UserSelection {
     let inner_input = prompt_expect("\nAre you sure? (y/n): ", &expected_inputs, &get_string_from_stdin, true);
     match inner_input.as_str() {
         "y" => UserSelection::DeleteEntry(index),
-        "n" => UserSelection::GoTo(Menu::EntriesList),
+        "n" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
         other => {
             panic!("Unexpected user selection '{:?}' in the Delete Entry Menu. Please, consider opening a bug to the developers.",
                    other)
@@ -171,16 +196,13 @@ Main Menu:
     let expected_inputs_main = vec!["e".to_string(), "s".to_string(), "q".to_string(), "c".to_string(), "i".to_string(), "x".to_string()];
     let input = prompt_expect(message, &expected_inputs_main, &get_string_from_stdin, true);
     match input.as_str() {
-        "e" => UserSelection::GoTo(Menu::EntriesList),
+        "e" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
         "s" => UserSelection::GoTo(Menu::Save),
         "q" => UserSelection::GoTo(Menu::Exit),
         "c" => UserSelection::GoTo(Menu::ChangePass),
         "i" => UserSelection::GoTo(Menu::ImportEntries),
         "x" => UserSelection::GoTo(Menu::ExportEntries),
-        other => {
-            panic!("Unexpected user selection '{:?}' in the Main Menu. Please, consider opening a bug to the developers.",
-                   other)
-        }
+        other => panic!("Unexpected user selection '{:?}' in the Main Menu. Please, consider opening a bug to the developers.", other),
     }
 }
 
