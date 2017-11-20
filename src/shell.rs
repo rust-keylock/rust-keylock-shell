@@ -2,6 +2,8 @@ use rust_keylock::{Entry, Editor, UserSelection, Menu, Safe};
 use std::io::prelude::*;
 use std::io;
 use rpassword;
+#[cfg(target_os = "windows")]
+use std::process::Command;
 
 /// Editor handler driven by the shell
 pub struct EditorImpl;
@@ -84,6 +86,22 @@ impl Editor for EditorImpl {
     }
 }
 
+#[cfg(target_os = "windows")]
+fn clear() {
+    match Command::new("cmd")
+        .arg("/c")
+        .arg("cls")
+        .status() {
+        Ok(_) => {
+            // ignore
+        }
+        Err(error) => {
+            println!("Failed to clean the command line: {:?}", error);
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
 fn clear() {
     print!("{}[2J", 27 as char);
 }
