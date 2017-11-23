@@ -1,4 +1,4 @@
-use rust_keylock::{Entry, Editor, UserSelection, Menu, Safe};
+use rust_keylock::{Entry, Editor, UserSelection, Menu, Safe, UserOption, MessageSeverity};
 use std::io::prelude::*;
 use std::io;
 use rpassword;
@@ -79,10 +79,31 @@ impl Editor for EditorImpl {
         show_exit_menu(contents_changed)
     }
 
-    fn show_message(&self, message: &str) -> UserSelection {
-        let expected_input = vec!["".to_string()];
-        let _ = prompt_expect(message, &expected_input, &get_string_from_stdin, true);
-        UserSelection::Ack
+    fn show_message(&self, message: &str, options: Vec<UserOption>, severity: MessageSeverity) -> UserSelection {
+        let mut whole_message = format!("[{:?}] ", severity);
+        whole_message.push_str(message);
+        whole_message.push_str("\n\n\tPress ");
+        let expected_input_tups: Vec<(String, String)> = options.iter()
+            .map(|opt| (opt.short_label.clone(), opt.label.clone()))
+            .collect();
+
+        for inp in expected_input_tups.iter() {
+        	whole_message.push('\'');
+            whole_message.push_str(&inp.0);
+            whole_message.push('\'');
+            whole_message.push_str(" for ");
+            whole_message.push_str(&inp.1);
+        }
+
+		whole_message.push_str("\n\tSelection: ");
+        let expected_inputs: Vec<String> = expected_input_tups.into_iter().map(|inp| inp.0).collect();
+
+        let selection_string = prompt_expect(&whole_message, &expected_inputs, &get_string_from_stdin, true);
+        let user_selection_opt = options.iter().find({
+            |opt| &opt.short_label == selection_string
+        });
+
+        UserSelection::UserOption(UserOption::from(user_selection_opt.unwrap()))
     }
 }
 
