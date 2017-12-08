@@ -1,4 +1,5 @@
-use rust_keylock::{Entry, Editor, UserSelection, Menu, Safe, UserOption, MessageSeverity};
+use rust_keylock::{Entry, Editor, UserSelection, Menu, Safe, UserOption, MessageSeverity, RklConfiguration};
+use rust_keylock::nextcloud::NextcloudConfiguration;
 use std::io::prelude::*;
 use std::io;
 use rpassword;
@@ -44,7 +45,7 @@ impl Editor for EditorImpl {
         }
     }
 
-    fn show_menu(&self, menu: &Menu, safe: &Safe) -> UserSelection {
+    fn show_menu(&self, menu: &Menu, safe: &Safe, configuration: &RklConfiguration) -> UserSelection {
         clear();
         match menu {
             &Menu::Main => show_main_menu(),
@@ -70,6 +71,10 @@ impl Editor for EditorImpl {
                 let password = prompt_expect_any("Please provide the password: ", &get_secret_string_from_stdin);
                 let number = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin, true);
                 UserSelection::ImportFrom(path_input, password, number)
+            }
+            &Menu::ShowConfiguration => {
+                let new_configuration = edit_configuration(configuration, &get_string_from_stdin);
+                UserSelection::UpdateConfiguration(new_configuration)
             }
             other => panic!("Menu '{:?}' cannot be used with Entries. Please, consider opening a bug to the developers.", other),
         }
@@ -223,12 +228,13 @@ fn delete_entry(index: usize) -> UserSelection {
 fn show_main_menu() -> UserSelection {
     let message = r#"
 Main Menu:
-	e: Show Existing Entries
-	s: Save changes
-	c: Change Password
-	i: Import Encrypted Entries
-	x: Export Entries
-	q: Quit
+	e: Show (E)xisting Entries
+	s: (S)ave changes
+	p: Change (P)assword
+	c: Edit (C)onfiguration
+	i: (I)mport Encrypted Entries
+	x: E(x)port Entries
+	q: (Q)uit
 
 	Selection: "#;
 
@@ -238,7 +244,8 @@ Main Menu:
         "e" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
         "s" => UserSelection::GoTo(Menu::Save),
         "q" => UserSelection::GoTo(Menu::Exit),
-        "c" => UserSelection::GoTo(Menu::ChangePass),
+        "p" => UserSelection::GoTo(Menu::ChangePass),
+        "c" => UserSelection::GoTo(Menu::ShowConfiguration),
         "i" => UserSelection::GoTo(Menu::ImportEntries),
         "x" => UserSelection::GoTo(Menu::ExportEntries),
         other => panic!("Unexpected user selection '{:?}' in the Main Menu. Please, consider opening a bug to the developers.", other),
@@ -287,6 +294,46 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
     };
 
     Entry::new(name, user, pass, desc)
+}
+
+fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> RklConfiguration
+    where T: Fn() -> String
+{
+	prompt("Nextcloud Configuration");
+    prompt(format!("Server URL ({}): ", conf.nextcloud.server_url).as_str());
+
+    let mut line = get_input();
+    let url = if line.len() == 0 {
+        conf.nextcloud.server_url.clone()
+    } else {
+        line.to_string()
+    };
+
+    prompt(format!("Username ({}): ", conf.nextcloud.username).as_str());
+    line = get_input();
+    let user = if line.len() == 0 {
+        conf.nextcloud.username.clone()
+    } else {
+        line.to_string()
+    };
+
+    prompt(format!("password ({}): ", conf.nextcloud.decrypted_password().unwrap()).as_str());
+    line = get_input();
+    let pass = if line.len() == 0 {
+        conf.nextcloud.decrypted_password().unwrap()
+    } else {
+        line.to_string()
+    };
+
+    prompt(format!("Self-signed certificate DER location ({}): ", conf.nextcloud.self_signed_der_certificate_location).as_str());
+    line = get_input();
+    let cert_path = if line.len() == 0 {
+        conf.nextcloud.self_signed_der_certificate_location.clone()
+    } else {
+        line
+    };
+
+	RklConfiguration::from(NextcloudConfiguration::new(url, user, pass, cert_path).unwrap())
 }
 
 fn prompt_expect_any<'a, T>(message: &str, get_input: &T) -> String
