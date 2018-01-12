@@ -89,23 +89,41 @@ impl Editor for EditorImpl {
         whole_message.push_str(message);
         whole_message.push_str("\n\n\tPress ");
         let expected_input_tups: Vec<(String, String)> = options.iter()
-            .map(|opt| (opt.short_label.clone(), opt.label.clone()))
+            .map(|opt| {
+                if opt.short_label == "o" {
+                    ("Enter".to_string(), opt.label.clone())
+                } else {
+                    (opt.short_label.clone(), opt.label.clone())
+                }
+            })
             .collect();
 
         for inp in expected_input_tups.iter() {
-        	whole_message.push('\'');
+            whole_message.push('\'');
             whole_message.push_str(&inp.0);
             whole_message.push('\'');
             whole_message.push_str(" for ");
             whole_message.push_str(&inp.1);
         }
 
-		whole_message.push_str("\n\tSelection: ");
-        let expected_inputs: Vec<String> = expected_input_tups.into_iter().map(|inp| inp.0).collect();
+        whole_message.push_str("\n\tSelection: ");
+        let expected_inputs: Vec<String> = expected_input_tups.into_iter()
+            .map(|inp| {
+                if inp.0 == "Enter" {
+                    "\n".to_string()
+                } else {
+                    inp.0
+                }
+            })
+            .collect();
 
-        let selection_string = prompt_expect(&whole_message, &expected_inputs, &get_string_from_stdin, true);
-        let user_selection_opt = options.iter().find({
-            |opt| &opt.short_label == selection_string
+        let selection_string = prompt_expect(&whole_message, &expected_inputs, &get_string_from_stdin_no_trim, true);
+        let user_selection_opt = options.iter().find(|opt| {
+            if selection_string == "\n" {
+                &opt.short_label == "o"
+            } else {
+                &opt.short_label == selection_string
+            }
         });
 
         UserSelection::UserOption(UserOption::from(user_selection_opt.unwrap()))
@@ -287,11 +305,14 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
 
     prompt(format!("Description ({}): ", entry.desc).as_str());
     line = get_input();
-    let desc = if line.len() == 0 {
+    let mut desc = if line.len() == 0 {
         entry.desc.clone()
     } else {
         line
     };
+    if desc == "_" {
+        desc = "".to_string();
+    }
 
     Entry::new(name, user, pass, desc)
 }
@@ -299,7 +320,7 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
 fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> RklConfiguration
     where T: Fn() -> String
 {
-	prompt("Nextcloud Configuration");
+    prompt("Nextcloud Configuration");
     prompt(format!("Server URL ({}): ", conf.nextcloud.server_url).as_str());
 
     let mut line = get_input();
@@ -327,13 +348,16 @@ fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> RklConfigura
 
     prompt(format!("Self-signed certificate DER location ({}): ", conf.nextcloud.self_signed_der_certificate_location).as_str());
     line = get_input();
-    let cert_path = if line.len() == 0 {
+    let mut cert_path = if line.len() == 0 {
         conf.nextcloud.self_signed_der_certificate_location.clone()
     } else {
         line
     };
+    if cert_path == "_" {
+        cert_path = "".to_string();
+    }
 
-	RklConfiguration::from(NextcloudConfiguration::new(url, user, pass, cert_path).unwrap())
+    RklConfiguration::from((NextcloudConfiguration::new(url, user, pass, cert_path).unwrap(), conf.system.clone()))
 }
 
 fn prompt_expect_any<'a, T>(message: &str, get_input: &T) -> String
@@ -411,6 +435,13 @@ fn get_string_from_stdin() -> String {
     let mut line = String::new();
     stdin.lock().read_line(&mut line).unwrap();
     line.trim().to_string()
+}
+
+fn get_string_from_stdin_no_trim() -> String {
+    let stdin = io::stdin();
+    let mut line = String::new();
+    stdin.lock().read_line(&mut line).unwrap();
+    line.to_string()
 }
 
 fn get_secret_string_from_stdin() -> String {
