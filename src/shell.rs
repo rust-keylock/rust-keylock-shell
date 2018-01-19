@@ -1,6 +1,7 @@
-use rust_keylock::{Entry, Editor, UserSelection, Menu, Safe, UserOption, MessageSeverity};
+use rust_keylock::{Entry, Editor, UserSelection, Menu, Safe, UserOption, MessageSeverity, RklConfiguration};
+use rust_keylock::nextcloud::NextcloudConfiguration;
 use std::io::prelude::*;
-use std::io;
+use std::{io, str};
 use rpassword;
 #[cfg(target_os = "windows")]
 use std::process::Command;
@@ -44,7 +45,7 @@ impl Editor for EditorImpl {
         }
     }
 
-    fn show_menu(&self, menu: &Menu, safe: &Safe) -> UserSelection {
+    fn show_menu(&self, menu: &Menu, safe: &Safe, configuration: &RklConfiguration) -> UserSelection {
         clear();
         match menu {
             &Menu::Main => show_main_menu(),
@@ -71,6 +72,10 @@ impl Editor for EditorImpl {
                 let number = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin, true);
                 UserSelection::ImportFrom(path_input, password, number)
             }
+            &Menu::ShowConfiguration => {
+                let new_configuration = edit_configuration(configuration, &get_string_from_stdin);
+                UserSelection::UpdateConfiguration(new_configuration)
+            }
             other => panic!("Menu '{:?}' cannot be used with Entries. Please, consider opening a bug to the developers.", other),
         }
     }
@@ -84,23 +89,40 @@ impl Editor for EditorImpl {
         whole_message.push_str(message);
         whole_message.push_str("\n\n\tPress ");
         let expected_input_tups: Vec<(String, String)> = options.iter()
-            .map(|opt| (opt.short_label.clone(), opt.label.clone()))
+            .map(|opt| {
+                if opt.short_label == "o" {
+                    ("Enter".to_string(), opt.label.clone())
+                } else {
+                    (opt.short_label.clone(), opt.label.clone())
+                }
+            })
             .collect();
 
         for inp in expected_input_tups.iter() {
-        	whole_message.push('\'');
+            whole_message.push('\'');
             whole_message.push_str(&inp.0);
             whole_message.push('\'');
             whole_message.push_str(" for ");
             whole_message.push_str(&inp.1);
         }
 
-		whole_message.push_str("\n\tSelection: ");
-        let expected_inputs: Vec<String> = expected_input_tups.into_iter().map(|inp| inp.0).collect();
-
-        let selection_string = prompt_expect(&whole_message, &expected_inputs, &get_string_from_stdin, true);
-        let user_selection_opt = options.iter().find({
-            |opt| &opt.short_label == selection_string
+        whole_message.push_str("\n\tSelection: ");
+        let expected_inputs: Vec<String> = expected_input_tups.into_iter()
+            .map(|inp| {
+                if inp.0 == "Enter" {
+                    "\n".to_string()
+                } else {
+                    inp.0
+                }
+            })
+            .collect();
+        let selection_string = prompt_expect(&whole_message, &expected_inputs, &get_string_from_stdin_no_trim, true);
+        let user_selection_opt = options.iter().find(|opt| {
+            if selection_string == "\n" {
+                &opt.short_label == "o"
+            } else {
+                &opt.short_label == selection_string
+            }
         });
 
         UserSelection::UserOption(UserOption::from(user_selection_opt.unwrap()))
@@ -223,12 +245,13 @@ fn delete_entry(index: usize) -> UserSelection {
 fn show_main_menu() -> UserSelection {
     let message = r#"
 Main Menu:
-	e: Show Existing Entries
-	s: Save changes
-	c: Change Password
-	i: Import Encrypted Entries
-	x: Export Entries
-	q: Quit
+	e: Show (E)xisting Entries
+	s: (S)ave changes
+	p: Change (P)assword
+	c: Edit (C)onfiguration
+	i: (I)mport Encrypted Entries
+	x: E(x)port Entries
+	q: (Q)uit
 
 	Selection: "#;
 
@@ -238,7 +261,8 @@ Main Menu:
         "e" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
         "s" => UserSelection::GoTo(Menu::Save),
         "q" => UserSelection::GoTo(Menu::Exit),
-        "c" => UserSelection::GoTo(Menu::ChangePass),
+        "p" => UserSelection::GoTo(Menu::ChangePass),
+        "c" => UserSelection::GoTo(Menu::ShowConfiguration),
         "i" => UserSelection::GoTo(Menu::ImportEntries),
         "x" => UserSelection::GoTo(Menu::ExportEntries),
         other => panic!("Unexpected user selection '{:?}' in the Main Menu. Please, consider opening a bug to the developers.", other),
@@ -280,13 +304,59 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
 
     prompt(format!("Description ({}): ", entry.desc).as_str());
     line = get_input();
-    let desc = if line.len() == 0 {
+    let mut desc = if line.len() == 0 {
         entry.desc.clone()
     } else {
         line
     };
+    if desc == "_" {
+        desc = "".to_string();
+    }
 
     Entry::new(name, user, pass, desc)
+}
+
+fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> NextcloudConfiguration
+    where T: Fn() -> String
+{
+    prompt("Nextcloud Configuration");
+    prompt(format!("Server URL ({}): ", conf.nextcloud.server_url).as_str());
+
+    let mut line = get_input();
+    let url = if line.len() == 0 {
+        conf.nextcloud.server_url.clone()
+    } else {
+        line.to_string()
+    };
+
+    prompt(format!("Username ({}): ", conf.nextcloud.username).as_str());
+    line = get_input();
+    let user = if line.len() == 0 {
+        conf.nextcloud.username.clone()
+    } else {
+        line.to_string()
+    };
+
+    prompt(format!("password ({}): ", conf.nextcloud.decrypted_password().unwrap()).as_str());
+    line = get_input();
+    let pass = if line.len() == 0 {
+        conf.nextcloud.decrypted_password().unwrap()
+    } else {
+        line.to_string()
+    };
+
+    prompt(format!("Self-signed certificate DER location ({}): ", conf.nextcloud.self_signed_der_certificate_location).as_str());
+    line = get_input();
+    let mut cert_path = if line.len() == 0 {
+        conf.nextcloud.self_signed_der_certificate_location.clone()
+    } else {
+        line
+    };
+    if cert_path == "_" {
+        cert_path = "".to_string();
+    }
+
+    NextcloudConfiguration::new(url, user, pass, cert_path).unwrap()
 }
 
 fn prompt_expect_any<'a, T>(message: &str, get_input: &T) -> String
@@ -364,6 +434,22 @@ fn get_string_from_stdin() -> String {
     let mut line = String::new();
     stdin.lock().read_line(&mut line).unwrap();
     line.trim().to_string()
+}
+
+fn get_string_from_stdin_no_trim() -> String {
+    let stdin = io::stdin();
+    let mut line = String::new();
+    stdin.lock().read_line(&mut line).unwrap();
+    match line.as_bytes().split_last() {
+        Some((_last, rest)) => {
+        	if rest.len() == 0 {
+        		"\n".to_string()
+        	} else {
+	        	String::from(str::from_utf8(rest).unwrap_or(""))
+        	}
+        }
+        None => "".to_string(),
+    }
 }
 
 fn get_secret_string_from_stdin() -> String {
