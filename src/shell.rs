@@ -319,7 +319,7 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
 fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> NextcloudConfiguration
     where T: Fn() -> String
 {
-    prompt("Nextcloud Configuration");
+    prompt("Nextcloud Configuration\n");
     prompt(format!("Server URL ({}): ", conf.nextcloud.server_url).as_str());
 
     let mut line = get_input();
@@ -345,18 +345,20 @@ fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> NextcloudCon
         line.to_string()
     };
 
-    prompt(format!("Self-signed certificate DER location ({}): ", conf.nextcloud.self_signed_der_certificate_location).as_str());
-    line = get_input();
-    let mut cert_path = if line.len() == 0 {
-        conf.nextcloud.self_signed_der_certificate_location.clone()
+    let y_n = if conf.nextcloud.use_self_signed_certificate {
+        "y"
     } else {
-        line
+        "n"
     };
-    if cert_path == "_" {
-        cert_path = "".to_string();
-    }
+    prompt(format!("Use a self-signed certificate? (y/n) ({}): ", y_n).as_str());
+    line = get_input();
+    let use_self_signed = if line.len() == 0 {
+        conf.nextcloud.use_self_signed_certificate
+    } else {
+        line == "y"
+    };
 
-    NextcloudConfiguration::new(url, user, pass, cert_path).unwrap()
+    NextcloudConfiguration::new(url, user, pass, use_self_signed).unwrap()
 }
 
 fn prompt_expect_any<'a, T>(message: &str, get_input: &T) -> String
@@ -442,11 +444,11 @@ fn get_string_from_stdin_no_trim() -> String {
     stdin.lock().read_line(&mut line).unwrap();
     match line.as_bytes().split_last() {
         Some((_last, rest)) => {
-        	if rest.len() == 0 {
-        		"\n".to_string()
-        	} else {
-	        	String::from(str::from_utf8(rest).unwrap_or(""))
-        	}
+            if rest.len() == 0 {
+                "\n".to_string()
+            } else {
+                String::from(str::from_utf8(rest).unwrap_or(""))
+            }
         }
         None => "".to_string(),
     }
