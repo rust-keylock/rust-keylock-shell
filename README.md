@@ -40,3 +40,11 @@ Run the application:
  ```shell
  ./target/release/rust_keylock`
  ```
+ 
+# FAQ
+
+On the Project [website](https://rust-keylock.github.io/faq/rkl/).
+
+# Wiki
+
+On the Project [website](https://rust-keylock.github.io/wiki/).
