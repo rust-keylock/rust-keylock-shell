@@ -290,11 +290,14 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
 
     prompt(format!("URL ({}): ", entry.url).as_str());
     line = get_input();
-    let url = if line.len() == 0 {
+    let mut url = if line.len() == 0 {
         entry.url.clone()
     } else {
         line.to_string()
     };
+    if url == "_" {
+        url = "".to_string();
+    }
 
     prompt(format!("username ({}): ", entry.user).as_str());
     line = get_input();
