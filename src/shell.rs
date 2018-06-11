@@ -203,8 +203,8 @@ fn show_entries_menu(entries: &[Entry], filter: &str) -> UserSelection {
 }
 
 fn show_entry(index: usize, entry: Entry) -> UserSelection {
-
     println!("Name: {}", entry.name);
+    println!("URL: {}", entry.url);
     println!("Username: {}", entry.user);
     println!("Password: {}", entry.pass);
     println!("Description: {}", entry.desc);
@@ -281,10 +281,17 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
     where T: Fn() -> String
 {
     prompt(format!("name ({}): ", entry.name).as_str());
-
     let mut line = get_input();
     let name = if line.len() == 0 {
         entry.name.clone()
+    } else {
+        line.to_string()
+    };
+
+    prompt(format!("URL ({}): ", entry.url).as_str());
+    line = get_input();
+    let url = if line.len() == 0 {
+        entry.url.clone()
     } else {
         line.to_string()
     };
@@ -316,7 +323,7 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
         desc = "".to_string();
     }
 
-    Entry::new(name, user, pass, desc)
+    Entry::new(name, url, user, pass, desc)
 }
 
 fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> NextcloudConfiguration
@@ -467,9 +474,10 @@ mod test_shell {
 
     #[test]
     fn edit_change() {
-        let entry = Entry::new("name".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string());
+        let entry = Entry::new("name".to_string(), "url".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string());
         let new_entry = super::edit(entry, &dummy_input);
         assert!(new_entry.name == dummy_input());
+        assert!(new_entry.url == dummy_input());
         assert!(new_entry.user == dummy_input());
         assert!(new_entry.pass == dummy_input());
         assert!(new_entry.desc == dummy_input());
@@ -477,9 +485,10 @@ mod test_shell {
 
     #[test]
     fn edit_leave_unchanged() {
-        let entry = Entry::new("name".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string());
+        let entry = Entry::new("name".to_string(), "url".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string());
         let new_entry = super::edit(entry, &input_with_empty_string);
         assert!(new_entry.name == "name");
+        assert!(new_entry.url == "url");
         assert!(new_entry.user == "user");
         assert!(new_entry.pass == "pass");
         assert!(new_entry.desc == "desc");
@@ -511,26 +520,27 @@ mod test_shell {
     #[test]
     fn sort_entries() {
         let mut entries = vec![Entry {
-                                   name: "Cat".to_string(),
-                                   user: "user1".to_string(),
-                                   pass: "pass1".to_string(),
-                                   desc: "desc1".to_string(),
-                                   encrypted: false,
-                               },
-                               Entry {
-                                   name: "Albatros".to_string(),
-                                   user: "user2".to_string(),
-                                   pass: "pass2".to_string(),
-                                   desc: "desc2".to_string(),
-                                   encrypted: false,
-                               },
-                               Entry {
-                                   name: "Bear".to_string(),
-                                   user: "user3".to_string(),
-                                   pass: "pass3".to_string(),
-                                   desc: "desc3".to_string(),
-                                   encrypted: false,
-                               }];
+            name: "Cat".to_string(),
+            url: "url1".to_string(),
+            user: "user1".to_string(),
+            pass: "pass1".to_string(),
+            desc: "desc1".to_string(),
+            encrypted: false,
+        }, Entry {
+            name: "Albatros".to_string(),
+            url: "url2".to_string(),
+            user: "user2".to_string(),
+            pass: "pass2".to_string(),
+            desc: "desc2".to_string(),
+            encrypted: false,
+        }, Entry {
+            name: "Bear".to_string(),
+            url: "url3".to_string(),
+            user: "user3".to_string(),
+            pass: "pass3".to_string(),
+            desc: "desc3".to_string(),
+            encrypted: false,
+        }];
 
         let editor = super::new();
         editor.sort_entries(&mut entries);
