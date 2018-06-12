@@ -17,15 +17,56 @@ use rust_keylock::{Entry, Editor, UserSelection, Menu, Safe, UserOption, Message
 use rust_keylock::nextcloud::NextcloudConfiguration;
 use std::io::prelude::*;
 use std::{io, str};
+use std::sync::Mutex;
 use rpassword;
 #[cfg(target_os = "windows")]
 use std::process::Command;
 
 /// Editor handler driven by the shell
-pub struct EditorImpl;
+pub struct EditorImpl {
+    previous_menu: Mutex<Option<Menu>>,
+}
 
 pub fn new() -> EditorImpl {
-    EditorImpl {}
+    EditorImpl { previous_menu: Mutex::new(None) }
+}
+
+impl EditorImpl {
+    fn update_internal_state(&self, menu: &UserSelection) {
+        match menu {
+            &UserSelection::GoTo(ref menu) => { self.update_menu(menu.clone()) }
+            _ => {
+                // ignore
+            }
+        }
+    }
+
+    fn update_menu(&self, menu: Menu) {
+        match self.previous_menu.lock() {
+            Ok(mut previous_menu_mut) => {
+                *previous_menu_mut = Some(menu);
+            }
+            Err(error) => {
+                prompt_expect_any(
+                    format!("Warning! Could not update the internal state. Reason: {:?}", error).as_ref(),
+                    &get_string_from_stdin);
+            }
+        };
+    }
+
+    fn previous_menu(&self) -> Option<Menu> {
+        match self.previous_menu.lock() {
+            Ok(previous_menu_mut) => {
+                previous_menu_mut.clone()
+            }
+            Err(error) => {
+                prompt_expect_any(
+                    format!("Warning! Could not retrieve the internal state. Reason: {:?}", error).as_ref(),
+                    &get_string_from_stdin);
+                Some(Menu::Main)
+            }
+        }
+    }
 }
 
 impl Editor for EditorImpl {
@@ -62,7 +103,7 @@ impl Editor for EditorImpl {
 
     fn show_menu(&self, menu: &Menu, safe: &Safe, configuration: &RklConfiguration) -> UserSelection {
         clear();
-        match menu {
+        let selected = match menu {
             &Menu::Main => show_main_menu(),
             &Menu::EntriesList(_) => show_entries_menu(safe.get_entries(), &safe.get_filter()),
             &Menu::ShowEntry(index) => show_entry(index, safe.get_entry_decrypted(index)),
@@ -91,8 +132,14 @@ impl Editor for EditorImpl {
                 let new_configuration = edit_configuration(configuration, &get_string_from_stdin);
                 UserSelection::UpdateConfiguration(new_configuration)
             }
+            &Menu::Current => {
+                UserSelection::GoTo(self.previous_menu().unwrap_or(Menu::Main))
+            }
             other => panic!("Menu '{:?}' cannot be used with Entries. Please, consider opening a bug to the developers.", other),
-        }
+        };
+        self.update_internal_state(&selected);
+
+        selected
     }
 
     fn exit(&self, contents_changed: bool) -> UserSelection {
@@ -224,11 +271,20 @@ fn show_entry(index: usize, entry: Entry) -> UserSelection {
     println!("Password: {}", entry.pass);
     println!("Description: {}", entry.desc);
 
-    let expected_inputs = vec!["e".to_string(), "d".to_string(), "r".to_string()];
+    let expected_inputs = vec![
+        "e".to_string(),
+        "d".to_string(),
+        "r".to_string(),
+        "cu".to_string(),
+        "cn".to_string(),
+        "cp".to_string()];
     let message = r#"
 Entry Menu:
 	e: Edit
 	d: Delete
+	cu: (C)opy (U)RL
+	cn: (C)opy user(N)ame
+	cp:  (C)opy (P)assword
 	r: Return
 
 	Selection: "#;
@@ -237,6 +293,9 @@ Entry Menu:
         "e" => UserSelection::GoTo(Menu::EditEntry(index)),
         "d" => UserSelection::GoTo(Menu::DeleteEntry(index)),
         "r" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
+        "cu" => UserSelection::AddToClipboard(entry.url),
+        "cn" => UserSelection::AddToClipboard(entry.user),
+        "cp" => UserSelection::AddToClipboard(entry.pass),
         other => {
             panic!("Unexpected user selection '{:?}' in the Show Entry Menu. Please, consider opening a bug to the developers.",
                    other)
