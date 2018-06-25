@@ -14,7 +14,7 @@ categories = ["cryptography", "authentication"]
 travis-ci = { repository = "rust-keylock/rust-keylock-shell", branch = "master" }
 
 [dependencies]
-rust_keylock = {git = "https://github.com/rust-keylock/rust-keylock-lib.git"}
+rust_keylock = "0.6.0"
 log = "0.3"
 fern = "0.4"
 chrono = "0.3"
