@@ -331,7 +331,7 @@ Main Menu:
 	Selection: "#;
 
     let expected_inputs_main =
-        vec!["e".to_string(), "s".to_string(), "q".to_string(), "c".to_string(), "i".to_string(), "x".to_string(), "y".to_string()];
+        vec!["e".to_string(), "s".to_string(), "q".to_string(), "c".to_string(), "i".to_string(), "x".to_string(), "y".to_string(), "p".to_string()];
     let input = prompt_expect(message, &expected_inputs_main, &get_string_from_stdin, true);
     match input.as_str() {
         "e" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
