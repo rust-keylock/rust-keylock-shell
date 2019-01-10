@@ -28,7 +28,7 @@ pub fn init_logging() -> Result<(), ShellLoggerError> {
                                     record.level(),
                                     message))
         })
-        .level(log::LogLevelFilter::Debug)
+        .level(log::LevelFilter::Debug)
         .chain(fern::log_file("rust-keylock.log")?)
         .apply()?;
 
