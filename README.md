@@ -3,6 +3,10 @@
 
 ___rust-keylock-shell___ is the [Editor](https://rust-keylock.github.io/rust-keylock-lib/rust_keylock/trait.Editor.html) that manages the [rust-keylock-lib](https://github.com/rust-keylock/rust-keylock-lib) via the shell.
 
+# Warning
+
+The project has not yet received any formal / official security reviews. Use it at your own risk.
+
 # Install the shell Editor
 
 Provided that Rust and Cargo are [installed](https://rustup.rs/), simply issue
