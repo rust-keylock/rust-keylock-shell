@@ -335,7 +335,7 @@ Main Menu:
     let input = prompt_expect(message, &expected_inputs_main, &get_string_from_stdin, true);
     match input.as_str() {
         "e" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
-        "s" => UserSelection::GoTo(Menu::Save),
+        "s" => UserSelection::GoTo(Menu::Save(false)),
         "q" => UserSelection::GoTo(Menu::Exit),
         "p" => UserSelection::GoTo(Menu::ChangePass),
         "c" => UserSelection::GoTo(Menu::ShowConfiguration),

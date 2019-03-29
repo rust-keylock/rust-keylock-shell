@@ -29,5 +29,5 @@ fn main() {
     	println!("Could not initialize logger! Reason: {}", res.err().unwrap())
     }
     let shell = shell::new();
-    rust_keylock::execute(&shell);
+    rust_keylock::execute(Box::new(shell));
 }
