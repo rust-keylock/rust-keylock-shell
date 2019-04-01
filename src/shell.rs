@@ -323,7 +323,6 @@ Main Menu:
 	s: (S)ave changes
 	p: Change (P)assword
 	c: Edit (C)onfiguration
-	y: S(y)nchronize with Nextcloud
 	i: (I)mport Encrypted Entries from the filesystem
 	x: E(x)port Entries to the filesystem
 	q: (Q)uit
@@ -331,7 +330,7 @@ Main Menu:
 	Selection: "#;
 
     let expected_inputs_main =
-        vec!["e".to_string(), "s".to_string(), "q".to_string(), "c".to_string(), "i".to_string(), "x".to_string(), "y".to_string(), "p".to_string()];
+        vec!["e".to_string(), "s".to_string(), "q".to_string(), "c".to_string(), "i".to_string(), "x".to_string(), "p".to_string()];
     let input = prompt_expect(message, &expected_inputs_main, &get_string_from_stdin, true);
     match input.as_str() {
         "e" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
@@ -341,7 +340,6 @@ Main Menu:
         "c" => UserSelection::GoTo(Menu::ShowConfiguration),
         "i" => UserSelection::GoTo(Menu::ImportEntries),
         "x" => UserSelection::GoTo(Menu::ExportEntries),
-        "y" => UserSelection::GoTo(Menu::Synchronize),
         other => panic!("Unexpected user selection '{:?}' in the Main Menu. Please, consider opening a bug to the developers.", other),
     }
 }
