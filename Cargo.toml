@@ -1,6 +1,6 @@
 [package]
 name = "rust_keylock_shell"
-version = "0.8.2"
+version = "0.9.0"
 authors = ["aston <astonbitecode@gmail.com>"]
 description = "Shell access to the rust-keylock. rust-keylock is a password manager with goals to be Secure, Simple to use, Portable and Extensible."
 keywords = ["password", "manager", "safe", "encryption", "key"]
@@ -15,7 +15,7 @@ edition = "2018"
 travis-ci = { repository = "rust-keylock/rust-keylock-shell", branch = "master" }
 
 [dependencies]
-rust_keylock = "0.8.2"
+rust_keylock = {git = "https://github.com/rust-keylock/rust-keylock-lib"}
 log = "0.4"
 fern = "0.5"
 chrono = "0.4"
