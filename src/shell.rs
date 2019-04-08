@@ -13,14 +13,15 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with rust-keylock.  If not, see <http://www.gnu.org/licenses/>.
-use rust_keylock::{Entry, Editor, UserSelection, Menu, Safe, UserOption, MessageSeverity, RklConfiguration};
-use rust_keylock::nextcloud::NextcloudConfiguration;
-use std::io::prelude::*;
 use std::{io, str};
-use std::sync::Mutex;
-use rpassword;
+use std::io::prelude::*;
 #[cfg(target_os = "windows")]
 use std::process::Command;
+use std::sync::Mutex;
+
+use rpassword;
+use rust_keylock::{Editor, Entry, Menu, MessageSeverity, RklConfiguration, Safe, UserOption, UserSelection};
+use rust_keylock::nextcloud::NextcloudConfiguration;
 
 /// Editor handler driven by the shell
 pub struct EditorImpl {
@@ -33,11 +34,8 @@ pub fn new() -> EditorImpl {
 
 impl EditorImpl {
     fn update_internal_state(&self, menu: &UserSelection) {
-        match menu {
-            &UserSelection::GoTo(ref menu) => { self.update_menu(menu.clone()) }
-            _ => {
-                // ignore
-            }
+        if let UserSelection::GoTo(menu) = menu {
+            self.update_menu(menu.clone())
         }
     }
 
@@ -74,7 +72,7 @@ impl Editor for EditorImpl {
         clear();
         let password = prompt_expect_any("Please provide your password: ", &get_secret_string_from_stdin);
         let number = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin, true);
-        if password.len() == 0 {
+        if password.is_empty() {
             prompt_expect_any("Password cannot be empty!", &get_secret_string_from_stdin);
             self.show_password_enter()
         } else {
@@ -212,7 +210,7 @@ fn clear() {
 }
 
 fn show_entries_menu(entries: &[Entry], filter: &str) -> UserSelection {
-    if filter.len() > 0 {
+    if !filter.is_empty() {
         println!("Entries filtered by '{}'\n\n", filter);
     }
     // Print the entries
@@ -222,20 +220,20 @@ fn show_entries_menu(entries: &[Entry], filter: &str) -> UserSelection {
 
     // Prompt for user input
     let mut expected_inputs = Vec::new();
-    for i in 1..entries.len() + 1 {
-        expected_inputs.push(i.to_string());
+    for i in 0..entries.len() {
+        expected_inputs.push((i + 1).to_string());
     }
 
     expected_inputs.push("n".to_string());
     expected_inputs.push("r".to_string());
     expected_inputs.push("f".to_string());
 
-    let message = if filter.len() == 0 {
+    let message = if filter.is_empty() {
         r#"
     Please select one of the Entries,
     press 'n' to crate a new Entry or
     press 'r' to return to the Main Menu.
-    press 'f' to filter the presented Entries: 
+    press 'f' to filter the presented Entries:
  "#
     } else {
         expected_inputs.push("c".to_string());
@@ -244,7 +242,7 @@ fn show_entries_menu(entries: &[Entry], filter: &str) -> UserSelection {
     press 'n' to crate a new Entry,
     press 'r' to return to the Main Menu,
     press 'f' to filter the presented Entries, or
-    press 'c' to clear the currently applied filter: 
+    press 'c' to clear the currently applied filter:
 "#
     };
     let input = prompt_expect(message, &expected_inputs, &get_string_from_stdin, true);
@@ -354,7 +352,7 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
 {
     prompt(format!("name ({}): ", entry.name).as_str());
     let mut line = get_input();
-    let name = if line.len() == 0 {
+    let name = if line.is_empty() {
         entry.name.clone()
     } else {
         line.to_string()
@@ -362,7 +360,7 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
 
     prompt(format!("URL ({}): ", entry.url).as_str());
     line = get_input();
-    let mut url = if line.len() == 0 {
+    let mut url = if line.is_empty() {
         entry.url.clone()
     } else {
         line.to_string()
@@ -373,7 +371,7 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
 
     prompt(format!("username ({}): ", entry.user).as_str());
     line = get_input();
-    let user = if line.len() == 0 {
+    let user = if line.is_empty() {
         entry.user.clone()
     } else {
         line.to_string()
@@ -381,7 +379,7 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
 
     prompt(format!("password ({}): ", entry.pass).as_str());
     line = get_input();
-    let pass = if line.len() == 0 {
+    let pass = if line.is_empty() {
         entry.pass.clone()
     } else {
         line.to_string()
@@ -389,7 +387,7 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
 
     prompt(format!("Description ({}): ", entry.desc).as_str());
     line = get_input();
-    let mut desc = if line.len() == 0 {
+    let mut desc = if line.is_empty() {
         entry.desc.clone()
     } else {
         line
@@ -408,7 +406,7 @@ fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> NextcloudCon
     prompt(format!("Server URL ({}): ", conf.nextcloud.server_url).as_str());
 
     let mut line = get_input();
-    let url = if line.len() == 0 {
+    let url = if line.is_empty() {
         conf.nextcloud.server_url.clone()
     } else {
         line.to_string()
@@ -416,7 +414,7 @@ fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> NextcloudCon
 
     prompt(format!("Username ({}): ", conf.nextcloud.username).as_str());
     line = get_input();
-    let user = if line.len() == 0 {
+    let user = if line.is_empty() {
         conf.nextcloud.username.clone()
     } else {
         line.to_string()
@@ -424,7 +422,7 @@ fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> NextcloudCon
 
     prompt(format!("password ({}): ", conf.nextcloud.decrypted_password().unwrap()).as_str());
     line = get_input();
-    let pass = if line.len() == 0 {
+    let pass = if line.is_empty() {
         conf.nextcloud.decrypted_password().unwrap()
     } else {
         line.to_string()
@@ -437,7 +435,7 @@ fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> NextcloudCon
     };
     prompt(format!("Use a self-signed certificate? (y/n) ({}): ", y_n).as_str());
     line = get_input();
-    let use_self_signed = if line.len() == 0 {
+    let use_self_signed = if line.is_empty() {
         conf.nextcloud.use_self_signed_certificate
     } else {
         line == "y"
@@ -446,14 +444,14 @@ fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> NextcloudCon
     NextcloudConfiguration::new(url, user, pass, use_self_signed).unwrap()
 }
 
-fn prompt_expect_any<'a, T>(message: &str, get_input: &T) -> String
+fn prompt_expect_any<T>(message: &str, get_input: &T) -> String
     where T: Fn() -> String
 {
     prompt(message);
     get_input()
 }
 
-fn prompt_expect_number<'a, T>(message: &str, get_input: &T, hide_input_on_error: bool) -> usize
+fn prompt_expect_number<T>(message: &str, get_input: &T, hide_input_on_error: bool) -> usize
     where T: Fn() -> String
 {
     let input = prompt_expect_any(message, get_input);
@@ -475,7 +473,7 @@ fn prompt_expect<'a, T>(message: &str, expected_inputs: &'a [String], get_input:
     where T: Fn() -> String
 {
     let input = prompt_expect_any(message, get_input);
-    let ref input_str = input.as_str();
+    let input_str = input.as_str();
     let mut found_iter = expected_inputs.iter().filter(|inp| inp == &input_str);
     let found = found_iter.next();
     if found.is_some() {
@@ -529,7 +527,7 @@ fn get_string_from_stdin_no_trim() -> String {
     stdin.lock().read_line(&mut line).unwrap();
     match line.as_bytes().split_last() {
         Some((_last, rest)) => {
-            if rest.len() == 0 {
+            if rest.is_empty() {
                 "\n".to_string()
             } else {
                 String::from(str::from_utf8(rest).unwrap_or(""))
@@ -545,7 +543,7 @@ fn get_secret_string_from_stdin() -> String {
 
 #[cfg(test)]
 mod test_shell {
-    use rust_keylock::{Entry, Editor};
+    use rust_keylock::{Editor, Entry};
 
     #[test]
     fn edit_change() {
