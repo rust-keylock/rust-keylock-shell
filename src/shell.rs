@@ -14,14 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with rust-keylock.  If not, see <http://www.gnu.org/licenses/>.
 use std::{io, str};
+use std::error::Error;
 use std::io::prelude::*;
 #[cfg(target_os = "windows")]
 use std::process::Command;
 use std::sync::Mutex;
 
 use rpassword;
-use rust_keylock::{Editor, Entry, Menu, MessageSeverity, RklConfiguration, Safe, UserOption, UserSelection};
+use rust_keylock::{AllConfigurations, Editor, Entry, Menu, MessageSeverity, RklConfiguration, Safe, UserOption, UserSelection};
+use rust_keylock::dropbox::DropboxConfiguration;
 use rust_keylock::nextcloud::NextcloudConfiguration;
+use webbrowser;
 
 /// Editor handler driven by the shell
 pub struct EditorImpl {
@@ -127,8 +130,7 @@ impl Editor for EditorImpl {
                 UserSelection::ImportFrom(path_input, password, number)
             }
             &Menu::ShowConfiguration => {
-                let new_configuration = edit_configuration(configuration, &get_string_from_stdin);
-                UserSelection::UpdateConfiguration(new_configuration)
+                edit_configuration(configuration, &get_string_from_stdin)
             }
             &Menu::Current => {
                 UserSelection::GoTo(self.previous_menu().unwrap_or(Menu::Main))
@@ -399,9 +401,10 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
     Entry::new(name, url, user, pass, desc)
 }
 
-fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> NextcloudConfiguration
+fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> UserSelection
     where T: Fn() -> String
 {
+    prompt("Configure your Nextcloud or Dropbox account for synchronization\n\n");
     prompt("Nextcloud Configuration\n");
     prompt(format!("Server URL ({}): ", conf.nextcloud.server_url).as_str());
 
@@ -441,7 +444,63 @@ fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> NextcloudCon
         line == "y"
     };
 
-    NextcloudConfiguration::new(url, user, pass, use_self_signed).unwrap()
+    let ncc = NextcloudConfiguration::new(url, user, pass, use_self_signed).unwrap();
+
+    prompt("Dropbox Configuration\n");
+    let expected_inputs_y_n = vec!["y".to_string(), "n".to_string()];
+    let dbx_url = DropboxConfiguration::dropbox_url();
+
+    if !conf.dropbox.is_filled() {
+        let input = prompt_expect("Acquire an authentication token? (y/n):", &expected_inputs_y_n, &get_string_from_stdin, true);
+        match input.as_str() {
+            "y" => {
+                match webbrowser::open(&dbx_url) {
+                    Ok(_) => {
+                        prompt("A URL has been opened in your browser. \n\
+                            Please log in your Dropbox account and do the required actions to acquire a Dropbox authentication token.\n");
+                        UserSelection::GoTo(Menu::WaitForDbxTokenCallback(dbx_url))
+                    }
+                    Err(error) => {
+                        prompt_expect_any(&format!("Could not open the browser: {}. Press any key to continue.", error.description()), &get_string_from_stdin);
+                        UserSelection::UpdateConfiguration(AllConfigurations::new(
+                            ncc,
+                            DropboxConfiguration::default()))
+                    }
+                }
+            }
+            "n" => {
+                UserSelection::UpdateConfiguration(AllConfigurations::new(
+                    ncc,
+                    DropboxConfiguration::default()))
+            }
+            other => panic!("Unexpected user selection '{:?}' in the Configuration Menu. Please, consider opening a bug to the developers.", other),
+        }
+    } else {
+        let input = prompt_expect("A token is acquired. Do you want to renew? (y/n):", &expected_inputs_y_n, &get_string_from_stdin, true);
+        match input.as_str() {
+            "y" => {
+                match webbrowser::open(&dbx_url) {
+                    Ok(_) => {
+                        prompt("A URL has been opened in your browser. \n\
+                            Please log in your Dropbox account and do the required actions to acquire a Dropbox authentication token.\n");
+                        UserSelection::GoTo(Menu::WaitForDbxTokenCallback(dbx_url))
+                    }
+                    Err(error) => {
+                        prompt_expect_any(&format!("Could not open the browser: {}. Press any key to continue.", error.description()), &get_string_from_stdin);
+                        UserSelection::UpdateConfiguration(AllConfigurations::new(
+                            ncc,
+                            DropboxConfiguration::default()))
+                    }
+                }
+            }
+            "n" => {
+                UserSelection::UpdateConfiguration(AllConfigurations::new(
+                    ncc,
+                    DropboxConfiguration::new(conf.dropbox.decrypted_token().unwrap()).unwrap()))
+            }
+            other => panic!("Unexpected user selection '{:?}' in the Configuration Menu. Please, consider opening a bug to the developers.", other),
+        }
+    }
 }
 
 fn prompt_expect_any<T>(message: &str, get_input: &T) -> String
