@@ -21,7 +21,7 @@ use std::process::Command;
 use std::sync::Mutex;
 
 use rpassword;
-use rust_keylock::{AllConfigurations, Editor, Entry, Menu, MessageSeverity, RklConfiguration, Safe, UserOption, UserSelection};
+use rust_keylock::{AllConfigurations, Editor, Entry, Menu, MessageSeverity, UserOption, UserSelection, EntryPresentationType};
 use rust_keylock::dropbox::DropboxConfiguration;
 use rust_keylock::nextcloud::NextcloudConfiguration;
 use webbrowser;
@@ -102,22 +102,14 @@ impl Editor for EditorImpl {
         }
     }
 
-    fn show_menu(&self, menu: &Menu, safe: &Safe, configuration: &RklConfiguration) -> UserSelection {
+    fn show_menu(&self, menu: &Menu) -> UserSelection {
         clear();
         let selected = match menu {
             &Menu::Main => show_main_menu(),
-            &Menu::EntriesList(_) => show_entries_menu(safe.get_entries(), &safe.get_filter()),
-            &Menu::ShowEntry(index) => show_entry(index, safe.get_entry_decrypted(index)),
-            &Menu::DeleteEntry(index) => delete_entry(index),
             &Menu::NewEntry => {
                 let entry = Entry::empty();
                 let new_entry = edit(entry, &get_string_from_stdin);
                 UserSelection::NewEntry(new_entry)
-            }
-            &Menu::EditEntry(index) => {
-                let selected_entry = safe.get_entry_decrypted(index);
-                let new_entry = edit(selected_entry, &get_string_from_stdin);
-                UserSelection::ReplaceEntry(index, new_entry)
             }
             &Menu::ExportEntries => {
                 let path_input = prompt_expect_any("Please define the path: ", &get_string_from_stdin);
@@ -129,9 +121,6 @@ impl Editor for EditorImpl {
                 let number = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin, true);
                 UserSelection::ImportFrom(path_input, password, number)
             }
-            &Menu::ShowConfiguration => {
-                edit_configuration(configuration, &get_string_from_stdin)
-            }
             &Menu::Current => {
                 UserSelection::GoTo(self.previous_menu().unwrap_or(Menu::Main))
             }
@@ -140,6 +129,25 @@ impl Editor for EditorImpl {
         self.update_internal_state(&selected);
 
         selected
+    }
+
+    fn show_entries(&self, entries: Vec<Entry>, filter: String) -> UserSelection {
+        show_entries_menu(&entries, &filter)
+    }
+
+    fn show_entry(&self, entry: Entry, index: usize, presentation_type: EntryPresentationType) -> UserSelection {
+        match presentation_type {
+            EntryPresentationType::View => show_entry(index, entry),
+            EntryPresentationType::Delete => delete_entry(index),
+            EntryPresentationType::Edit => {
+                let new_entry = edit(entry, &get_string_from_stdin);
+                UserSelection::ReplaceEntry(index, new_entry)
+            }
+        }
+    }
+
+    fn show_configuration(&self, nextcloud: NextcloudConfiguration, dropbox: DropboxConfiguration) -> UserSelection {
+        edit_configuration(&nextcloud, &dropbox, &get_string_from_stdin)
     }
 
     fn exit(&self, contents_changed: bool) -> UserSelection {
@@ -401,37 +409,37 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
     Entry::new(name, url, user, pass, desc)
 }
 
-fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> UserSelection
+fn edit_configuration<T>(nextcloud: &NextcloudConfiguration, dropbox: &DropboxConfiguration, get_input: &T) -> UserSelection
     where T: Fn() -> String
 {
     prompt("Configure your Nextcloud or Dropbox account for synchronization\n\n");
     prompt("Nextcloud Configuration\n");
-    prompt(format!("Server URL ({}): ", conf.nextcloud.server_url).as_str());
+    prompt(format!("Server URL ({}): ", nextcloud.server_url).as_str());
 
     let mut line = get_input();
     let url = if line.is_empty() {
-        conf.nextcloud.server_url.clone()
+        nextcloud.server_url.clone()
     } else {
         line.to_string()
     };
 
-    prompt(format!("Username ({}): ", conf.nextcloud.username).as_str());
+    prompt(format!("Username ({}): ", nextcloud.username).as_str());
     line = get_input();
     let user = if line.is_empty() {
-        conf.nextcloud.username.clone()
+        nextcloud.username.clone()
     } else {
         line.to_string()
     };
 
-    prompt(format!("password ({}): ", conf.nextcloud.decrypted_password().unwrap()).as_str());
+    prompt(format!("password ({}): ", nextcloud.decrypted_password().unwrap()).as_str());
     line = get_input();
     let pass = if line.is_empty() {
-        conf.nextcloud.decrypted_password().unwrap()
+        nextcloud.decrypted_password().unwrap()
     } else {
         line.to_string()
     };
 
-    let y_n = if conf.nextcloud.use_self_signed_certificate {
+    let y_n = if nextcloud.use_self_signed_certificate {
         "y"
     } else {
         "n"
@@ -439,7 +447,7 @@ fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> UserSelectio
     prompt(format!("Use a self-signed certificate? (y/n) ({}): ", y_n).as_str());
     line = get_input();
     let use_self_signed = if line.is_empty() {
-        conf.nextcloud.use_self_signed_certificate
+        nextcloud.use_self_signed_certificate
     } else {
         line == "y"
     };
@@ -450,7 +458,7 @@ fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> UserSelectio
     let expected_inputs_y_n = vec!["y".to_string(), "n".to_string()];
     let dbx_url = DropboxConfiguration::dropbox_url();
 
-    if !conf.dropbox.is_filled() {
+    if !dropbox.is_filled() {
         let input = prompt_expect("Acquire an authentication token? (y/n):", &expected_inputs_y_n, &get_string_from_stdin, true);
         match input.as_str() {
             "y" => {
@@ -496,7 +504,7 @@ fn edit_configuration<T>(conf: &RklConfiguration, get_input: &T) -> UserSelectio
             "n" => {
                 UserSelection::UpdateConfiguration(AllConfigurations::new(
                     ncc,
-                    DropboxConfiguration::new(conf.dropbox.decrypted_token().unwrap()).unwrap()))
+                    DropboxConfiguration::new(dropbox.decrypted_token().unwrap()).unwrap()))
             }
             other => panic!("Unexpected user selection '{:?}' in the Configuration Menu. Please, consider opening a bug to the developers.", other),
         }
