@@ -412,102 +412,122 @@ fn edit<T>(entry: Entry, get_input: &T) -> Entry
 fn edit_configuration<T>(nextcloud: &NextcloudConfiguration, dropbox: &DropboxConfiguration, get_input: &T) -> UserSelection
     where T: Fn() -> String
 {
-    prompt("Configure your Nextcloud or Dropbox account for synchronization\n\n");
-    prompt("Nextcloud Configuration\n");
-    prompt(format!("Server URL ({}): ", nextcloud.server_url).as_str());
+    let mut ncc = NextcloudConfiguration::new(
+        nextcloud.server_url.to_owned(),
+        nextcloud.username.to_owned(),
+        nextcloud.decrypted_password().unwrap(),
+        nextcloud.use_self_signed_certificate).unwrap();
+    let dbxc = DropboxConfiguration::new(dropbox.decrypted_token().unwrap()).unwrap();
 
-    let mut line = get_input();
-    let url = if line.is_empty() {
-        nextcloud.server_url.clone()
-    } else {
-        line.to_string()
-    };
+    let message = r#"
+n: (N)extcloud configuration
+d: (D)ropbox configuration
+r: (R)eturn to Main Menu
 
-    prompt(format!("Username ({}): ", nextcloud.username).as_str());
-    line = get_input();
-    let user = if line.is_empty() {
-        nextcloud.username.clone()
-    } else {
-        line.to_string()
-    };
+	Selection: "#;
 
-    prompt(format!("password ({}): ", nextcloud.decrypted_password().unwrap()).as_str());
-    line = get_input();
-    let pass = if line.is_empty() {
-        nextcloud.decrypted_password().unwrap()
-    } else {
-        line.to_string()
-    };
+    let expected_inputs_main = vec!["n".to_string(), "d".to_string(), "r".to_string()];
+    let input = prompt_expect(message, &expected_inputs_main, &get_string_from_stdin, true);
+    match input.as_str() {
+        "n" => {
+            prompt(format!("Username ({}): ", nextcloud.username).as_str());
+            let mut line = get_input();
+            let url = if line.is_empty() {
+                nextcloud.server_url.clone()
+            } else {
+                line.to_string()
+            };
 
-    let y_n = if nextcloud.use_self_signed_certificate {
-        "y"
-    } else {
-        "n"
-    };
-    prompt(format!("Use a self-signed certificate? (y/n) ({}): ", y_n).as_str());
-    line = get_input();
-    let use_self_signed = if line.is_empty() {
-        nextcloud.use_self_signed_certificate
-    } else {
-        line == "y"
-    };
+            prompt(format!("Username ({}): ", nextcloud.username).as_str());
+            line = get_input();
+            let user = if line.is_empty() {
+                nextcloud.username.clone()
+            } else {
+                line.to_string()
+            };
 
-    let ncc = NextcloudConfiguration::new(url, user, pass, use_self_signed).unwrap();
+            prompt(format!("password ({}): ", nextcloud.decrypted_password().unwrap()).as_str());
+            line = get_input();
+            let pass = if line.is_empty() {
+                nextcloud.decrypted_password().unwrap()
+            } else {
+                line.to_string()
+            };
 
-    prompt("Dropbox Configuration\n");
-    let expected_inputs_y_n = vec!["y".to_string(), "n".to_string()];
-    let dbx_url = DropboxConfiguration::dropbox_url();
+            let y_n = if nextcloud.use_self_signed_certificate {
+                "y"
+            } else {
+                "n"
+            };
+            prompt(format!("Use a self-signed certificate? (y/n) ({}): ", y_n).as_str());
+            line = get_input();
+            let use_self_signed = if line.is_empty() {
+                nextcloud.use_self_signed_certificate
+            } else {
+                line == "y"
+            };
 
-    if !dropbox.is_filled() {
-        let input = prompt_expect("Acquire an authentication token? (y/n):", &expected_inputs_y_n, &get_string_from_stdin, true);
-        match input.as_str() {
-            "y" => {
-                match webbrowser::open(&dbx_url) {
-                    Ok(_) => {
-                        prompt("A URL has been opened in your browser. \n\
+            ncc = NextcloudConfiguration::new(url, user, pass, use_self_signed).unwrap();
+            UserSelection::UpdateConfiguration(AllConfigurations::new(ncc, dbxc))
+        }
+        "d" => {
+            let expected_inputs_y_n = vec!["y".to_string(), "n".to_string()];
+            let dbx_url = DropboxConfiguration::dropbox_url();
+
+            if !dropbox.is_filled() {
+                let input = prompt_expect("Acquire an authentication token? (y/n):", &expected_inputs_y_n, &get_string_from_stdin, true);
+                match input.as_str() {
+                    "y" => {
+                        match webbrowser::open(&dbx_url) {
+                            Ok(_) => {
+                                prompt("A URL has been opened in your browser. \n\
                             Please log in your Dropbox account and do the required actions to acquire a Dropbox authentication token.\n");
-                        UserSelection::GoTo(Menu::WaitForDbxTokenCallback(dbx_url))
+                                UserSelection::GoTo(Menu::WaitForDbxTokenCallback(dbx_url))
+                            }
+                            Err(error) => {
+                                prompt_expect_any(&format!("Could not open the browser: {}. Press any key to continue.", error.description()), &get_string_from_stdin);
+                                UserSelection::UpdateConfiguration(AllConfigurations::new(
+                                    ncc,
+                                    DropboxConfiguration::default()))
+                            }
+                        }
                     }
-                    Err(error) => {
-                        prompt_expect_any(&format!("Could not open the browser: {}. Press any key to continue.", error.description()), &get_string_from_stdin);
+                    "n" => {
                         UserSelection::UpdateConfiguration(AllConfigurations::new(
                             ncc,
                             DropboxConfiguration::default()))
                     }
+                    other => panic!("Unexpected user selection '{:?}' in the Configuration Menu. Please, consider opening a bug to the developers.", other),
                 }
-            }
-            "n" => {
-                UserSelection::UpdateConfiguration(AllConfigurations::new(
-                    ncc,
-                    DropboxConfiguration::default()))
-            }
-            other => panic!("Unexpected user selection '{:?}' in the Configuration Menu. Please, consider opening a bug to the developers.", other),
-        }
-    } else {
-        let input = prompt_expect("A token is acquired. Do you want to renew? (y/n):", &expected_inputs_y_n, &get_string_from_stdin, true);
-        match input.as_str() {
-            "y" => {
-                match webbrowser::open(&dbx_url) {
-                    Ok(_) => {
-                        prompt("A URL has been opened in your browser. \n\
+            } else {
+                let input = prompt_expect("A token is acquired. Do you want to renew? (y/n):", &expected_inputs_y_n, &get_string_from_stdin, true);
+                match input.as_str() {
+                    "y" => {
+                        match webbrowser::open(&dbx_url) {
+                            Ok(_) => {
+                                prompt("A URL has been opened in your browser. \n\
                             Please log in your Dropbox account and do the required actions to acquire a Dropbox authentication token.\n");
-                        UserSelection::GoTo(Menu::WaitForDbxTokenCallback(dbx_url))
+                                UserSelection::GoTo(Menu::WaitForDbxTokenCallback(dbx_url))
+                            }
+                            Err(error) => {
+                                prompt_expect_any(&format!("Could not open the browser: {}. Press any key to continue.", error.description()), &get_string_from_stdin);
+                                UserSelection::UpdateConfiguration(AllConfigurations::new(ncc, dbxc))
+                            }
+                        }
                     }
-                    Err(error) => {
-                        prompt_expect_any(&format!("Could not open the browser: {}. Press any key to continue.", error.description()), &get_string_from_stdin);
+                    "n" => {
                         UserSelection::UpdateConfiguration(AllConfigurations::new(
                             ncc,
-                            DropboxConfiguration::default()))
+                            DropboxConfiguration::new(dropbox.decrypted_token().unwrap()).unwrap()))
                     }
+                    other => panic!("Unexpected user selection '{:?}' in the Configuration Menu. Please, consider opening a bug to the developers.", other),
                 }
             }
-            "n" => {
-                UserSelection::UpdateConfiguration(AllConfigurations::new(
-                    ncc,
-                    DropboxConfiguration::new(dropbox.decrypted_token().unwrap()).unwrap()))
-            }
-            other => panic!("Unexpected user selection '{:?}' in the Configuration Menu. Please, consider opening a bug to the developers.", other),
         }
+        "r" => {
+            UserSelection::GoTo(Menu::Main)
+        }
+        other => panic!("Unexpected user selection '{:?}' in the Edit Configuration Menu. Please, consider opening a bug to the developers.", other),
     }
 }
 
