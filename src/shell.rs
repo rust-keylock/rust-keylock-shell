@@ -612,6 +612,7 @@ fn get_string_from_stdin_no_trim() -> String {
     let stdin = io::stdin();
     let mut line = String::new();
     stdin.lock().read_line(&mut line).unwrap();
+    line = line.replace("\r\n", "\n");
     match line.as_bytes().split_last() {
         Some((_last, rest)) => {
             if rest.is_empty() {
