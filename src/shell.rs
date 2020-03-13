@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with rust-keylock.  If not, see <http://www.gnu.org/licenses/>.
 use std::{io, str};
-use std::error::Error;
 use std::io::prelude::*;
 #[cfg(target_os = "windows")]
 use std::process::Command;
@@ -484,8 +483,8 @@ r: (R)eturn to Main Menu
                             Please log in your Dropbox account and do the required actions to acquire a Dropbox authentication token.\n");
                                 UserSelection::GoTo(Menu::WaitForDbxTokenCallback(dbx_url))
                             }
-                            Err(error) => {
-                                prompt_expect_any(&format!("Could not open the browser: {}. Press any key to continue.", error.description()), &get_string_from_stdin);
+                            Err(_) => {
+                                prompt_expect_any("Could not open the browser. Press any key to continue.", &get_string_from_stdin);
                                 UserSelection::UpdateConfiguration(AllConfigurations::new(
                                     ncc,
                                     DropboxConfiguration::default()))
@@ -509,8 +508,8 @@ r: (R)eturn to Main Menu
                             Please log in your Dropbox account and do the required actions to acquire a Dropbox authentication token.\n");
                                 UserSelection::GoTo(Menu::WaitForDbxTokenCallback(dbx_url))
                             }
-                            Err(error) => {
-                                prompt_expect_any(&format!("Could not open the browser: {}. Press any key to continue.", error.description()), &get_string_from_stdin);
+                            Err(_) => {
+                                prompt_expect_any("Could not open the browser. Press any key to continue.", &get_string_from_stdin);
                                 UserSelection::UpdateConfiguration(AllConfigurations::new(ncc, dbxc))
                             }
                         }
