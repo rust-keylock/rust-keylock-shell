@@ -1,7 +1,14 @@
 ![Build Status](https://travis-ci.org/rust-keylock/rust-keylock-shell.svg?branch=master)
 [![crates.io](https://img.shields.io/crates/v/rust_keylock_shell.svg)](https://crates.io/crates/rust_keylock_shell)
 
-___rust-keylock-shell___ is the [Editor](https://rust-keylock.github.io/rust-keylock-lib/rust_keylock/trait.Editor.html) that manages the [rust-keylock-lib](https://github.com/rust-keylock/rust-keylock-lib) via the shell.
+___rust-keylock___ is a password manager and its goals are to be:
+
+* Secure
+* Simple to use
+* Portable
+* Extensible
+
+___rust-keylock-shell___ provides command-line access to [rust-keylock-lib](https://github.com/rust-keylock/rust-keylock-lib).
 
 # Warning
 
@@ -29,14 +36,13 @@ Run the application:
  mkdir tmp
  cd tmp
  git clone https://github.com/rust-keylock/rust-keylock-shell.git
- 
- ```
+```
 
 * Build:
 
  ```shell
  cd rust-keylock-shell
- cargo build --release
+ cargo build
  ```
  
 * Run:
@@ -45,10 +51,7 @@ Run the application:
  ./target/release/rust_keylock`
  ```
  
-# FAQ
+# More info
 
-On the Project [website](https://rust-keylock.github.io/faq/rkl/).
-
-# Wiki
-
-On the Project [website](https://rust-keylock.github.io/wiki/).
+* [FAQ](https://rust-keylock.github.io/faq/rkl/) 
+* [Wiki](https://rust-keylock.github.io/wiki/)
