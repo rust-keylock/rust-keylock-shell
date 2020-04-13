@@ -20,10 +20,11 @@ use std::process::Command;
 use std::sync::Mutex;
 
 use rpassword;
-use rust_keylock::{AllConfigurations, Editor, Entry, Menu, MessageSeverity, UserOption, UserSelection, EntryPresentationType};
+use webbrowser;
+
+use rust_keylock::{AllConfigurations, Editor, Entry, EntryPresentationType, Menu, MessageSeverity, UserOption, UserSelection};
 use rust_keylock::dropbox::DropboxConfiguration;
 use rust_keylock::nextcloud::NextcloudConfiguration;
-use webbrowser;
 
 /// Editor handler driven by the shell
 pub struct EditorImpl {
@@ -105,10 +106,13 @@ impl Editor for EditorImpl {
         clear();
         let selected = match menu {
             &Menu::Main => show_main_menu(),
-            &Menu::NewEntry => {
-                let entry = Entry::empty();
-                let new_entry = edit(entry, &get_string_from_stdin);
-                UserSelection::NewEntry(new_entry)
+            &Menu::NewEntry(ref entry_opt) => {
+                let entry = entry_opt.clone().unwrap_or_else(|| Entry::empty());
+                match edit(entry, &get_string_from_stdin) {
+                    EditedEntry::Replace(new_entry) => UserSelection::NewEntry(new_entry),
+                    EditedEntry::GeneratePassphrase(new_entry) => UserSelection::GeneratePassphrase(None, new_entry),
+                    EditedEntry::Cancel => UserSelection::GoTo(Menu::EntriesList("".to_string())),
+                }
             }
             &Menu::ExportEntries => {
                 let path_input = prompt_expect_any("Please define the path: ", &get_string_from_stdin);
@@ -131,21 +135,27 @@ impl Editor for EditorImpl {
     }
 
     fn show_entries(&self, entries: Vec<Entry>, filter: String) -> UserSelection {
+        clear();
         show_entries_menu(&entries, &filter)
     }
 
     fn show_entry(&self, entry: Entry, index: usize, presentation_type: EntryPresentationType) -> UserSelection {
+        clear();
         match presentation_type {
             EntryPresentationType::View => show_entry(index, entry),
             EntryPresentationType::Delete => delete_entry(index),
             EntryPresentationType::Edit => {
-                let new_entry = edit(entry, &get_string_from_stdin);
-                UserSelection::ReplaceEntry(index, new_entry)
+                match edit(entry, &get_string_from_stdin) {
+                    EditedEntry::Replace(new_entry) => UserSelection::ReplaceEntry(index, new_entry),
+                    EditedEntry::GeneratePassphrase(new_entry) => UserSelection::GeneratePassphrase(Some(index), new_entry),
+                    EditedEntry::Cancel => UserSelection::GoTo(Menu::EntriesList("".to_string())),
+                }
             }
         }
     }
 
     fn show_configuration(&self, nextcloud: NextcloudConfiguration, dropbox: DropboxConfiguration) -> UserSelection {
+        clear();
         edit_configuration(&nextcloud, &dropbox, &get_string_from_stdin)
     }
 
@@ -258,7 +268,7 @@ fn show_entries_menu(entries: &[Entry], filter: &str) -> UserSelection {
     // Handle user input
     match input.as_str() {
         "r" => UserSelection::GoTo(Menu::Main),
-        "n" => UserSelection::GoTo(Menu::NewEntry),
+        "n" => UserSelection::GoTo(Menu::NewEntry(None)),
         "f" => {
             let filter = prompt_expect_any("Filter by:", &get_string_from_stdin);
             UserSelection::GoTo(Menu::EntriesList(filter))
@@ -356,56 +366,105 @@ fn prompt(message: &str) {
     io::stdout().flush().unwrap();
 }
 
-fn edit<T>(entry: Entry, get_input: &T) -> Entry
+fn edit<T>(entry: Entry, get_input: &T) -> EditedEntry
     where T: Fn() -> String
 {
-    prompt(format!("name ({}): ", entry.name).as_str());
-    let mut line = get_input();
-    let name = if line.is_empty() {
-        entry.name.clone()
-    } else {
-        line.to_string()
-    };
+    clear();
+    let mut entry = entry;
+    println!("Name: {}", entry.name);
+    println!("URL: {}", entry.url);
+    println!("Username: {}", entry.user);
+    println!("Password: {}", entry.pass);
+    println!("Description: {}", entry.desc);
 
-    prompt(format!("URL ({}): ", entry.url).as_str());
-    line = get_input();
-    let mut url = if line.is_empty() {
-        entry.url.clone()
-    } else {
-        line.to_string()
-    };
-    if url == "_" {
-        url = "".to_string();
+    let expected_inputs = vec![
+        "n".to_string(),
+        "u".to_string(),
+        "un".to_string(),
+        "p".to_string(),
+        "g".to_string(),
+        "d".to_string(),
+        "a".to_string(),
+        "c".to_string()];
+    let message = r#"
+Entry Menu:
+	n: Change (N)ame         g: (G)enerate new passphrase
+	u: Change (U)RL          d: Change (D)escription
+	un: Change (U)ser(N)ame  a: (A)ccept changes
+	p: Change (P)assword     C: (C)ancel
+
+	Selection: "#;
+    let inner_input = prompt_expect(message, &expected_inputs, &get_string_from_stdin, true);
+    match inner_input.as_str() {
+        "n" => {
+            prompt(format!("Changing Name ({}): ", entry.name).as_str());
+            let line = get_input();
+            let name = if line.is_empty() {
+                entry.name.clone()
+            } else {
+                line.to_string()
+            };
+            entry.name = name;
+            edit(entry, get_input)
+        }
+        "u" => {
+            prompt(format!("Changing URL ({}): ", entry.url).as_str());
+            let line = get_input();
+            let url = if line.is_empty() {
+                entry.url.clone()
+            } else {
+                line.to_string()
+            };
+            entry.url = url;
+            edit(entry, get_input)
+        }
+        "un" => {
+            prompt(format!("Changing Username ({}): ", entry.user).as_str());
+            let line = get_input();
+            let user = if line.is_empty() {
+                entry.name.clone()
+            } else {
+                line.to_string()
+            };
+            entry.user = user;
+            edit(entry, get_input)
+        }
+        "p" => {
+            prompt(format!("Changing Password ({}): ", entry.pass).as_str());
+            let line = get_input();
+            let pass = if line.is_empty() {
+                entry.pass.clone()
+            } else {
+                line.to_string()
+            };
+            entry.pass = pass;
+            edit(entry, get_input)
+        }
+        "g" => {
+            EditedEntry::GeneratePassphrase(entry)
+        }
+        "d" => {
+            prompt(format!("Changing Description ({}): ", entry.desc).as_str());
+            let line = get_input();
+            let desc = if line.is_empty() {
+                entry.desc.clone()
+            } else {
+                line.to_string()
+            };
+            entry.desc = desc;
+            edit(entry, get_input)
+        }
+        "a" => {
+            EditedEntry::Replace(entry)
+        }
+        "c" => {
+            EditedEntry::Cancel
+        }
+        other => {
+            panic!("Unexpected user selection '{:?}' in the Show Entry Menu. Please, consider opening a bug to the developers.",
+                   other)
+        }
     }
-
-    prompt(format!("username ({}): ", entry.user).as_str());
-    line = get_input();
-    let user = if line.is_empty() {
-        entry.user.clone()
-    } else {
-        line.to_string()
-    };
-
-    prompt(format!("password ({}): ", entry.pass).as_str());
-    line = get_input();
-    let pass = if line.is_empty() {
-        entry.pass.clone()
-    } else {
-        line.to_string()
-    };
-
-    prompt(format!("Description ({}): ", entry.desc).as_str());
-    line = get_input();
-    let mut desc = if line.is_empty() {
-        entry.desc.clone()
-    } else {
-        line
-    };
-    if desc == "_" {
-        desc = "".to_string();
-    }
-
-    Entry::new(name, url, user, pass, desc)
 }
 
 fn edit_configuration<T>(nextcloud: &NextcloudConfiguration, dropbox: &DropboxConfiguration, get_input: &T) -> UserSelection
@@ -626,6 +685,12 @@ fn get_string_from_stdin_no_trim() -> String {
 
 fn get_secret_string_from_stdin() -> String {
     rpassword::prompt_password_stdout("").unwrap()
+}
+
+enum EditedEntry {
+    Replace(Entry),
+    GeneratePassphrase(Entry),
+    Cancel,
 }
 
 #[cfg(test)]
