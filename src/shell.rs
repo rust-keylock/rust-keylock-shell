@@ -20,11 +20,10 @@ use std::process::Command;
 use std::sync::Mutex;
 
 use rpassword;
-use webbrowser;
-
 use rust_keylock::{AllConfigurations, Editor, Entry, EntryPresentationType, Menu, MessageSeverity, UserOption, UserSelection};
 use rust_keylock::dropbox::DropboxConfiguration;
 use rust_keylock::nextcloud::NextcloudConfiguration;
+use webbrowser;
 
 /// Editor handler driven by the shell
 pub struct EditorImpl {
@@ -394,7 +393,7 @@ Entry Menu:
 	p: Change (P)assword     C: (C)ancel
 
 	Selection: "#;
-    let inner_input = prompt_expect(message, &expected_inputs, &get_string_from_stdin, true);
+    let inner_input = prompt_expect(message, &expected_inputs, &get_input, true);
     match inner_input.as_str() {
         "n" => {
             prompt(format!("Changing Name ({}): ", entry.name).as_str());
@@ -687,6 +686,7 @@ fn get_secret_string_from_stdin() -> String {
     rpassword::prompt_password_stdout("").unwrap()
 }
 
+#[derive(Debug, PartialEq, Eq)]
 enum EditedEntry {
     Replace(Entry),
     GeneratePassphrase(Entry),
@@ -695,28 +695,72 @@ enum EditedEntry {
 
 #[cfg(test)]
 mod test_shell {
+    use std::sync::{Arc, Mutex};
+
     use rust_keylock::{Editor, Entry};
+
+    use crate::shell::EditedEntry;
 
     #[test]
     fn edit_change() {
         let entry = Entry::new("name".to_string(), "url".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string());
-        let new_entry = super::edit(entry, &dummy_input);
-        assert!(new_entry.name == dummy_input());
-        assert!(new_entry.url == dummy_input());
-        assert!(new_entry.user == dummy_input());
-        assert!(new_entry.pass == dummy_input());
-        assert!(new_entry.desc == dummy_input());
+        let i = Arc::new(Mutex::new(0));
+        let ci = Arc::clone(&i);
+        let edited_entry = super::edit(entry, &|| {
+            let mut ii = ci.lock().unwrap();
+            *ii += 1;
+            if *ii == 1 {
+                "n".to_string()
+            } else if *ii == 2 {
+                "newname".to_string()
+            } else if *ii == 3 {
+                "u".to_string()
+            } else if *ii == 4 {
+                "newurl".to_string()
+            } else if *ii == 5 {
+                "un".to_string()
+            } else if *ii == 6 {
+                "newusername".to_string()
+            } else if *ii == 7 {
+                "p".to_string()
+            } else if *ii == 8 {
+                "newpass".to_string()
+            } else if *ii == 9 {
+                "d".to_string()
+            } else if *ii == 10 {
+                "newdescription".to_string()
+            } else if *ii == 11 {
+                "a".to_string()
+            } else {
+                panic!("Unexpected state");
+            }
+        });
+        match edited_entry {
+            EditedEntry::Replace(new_entry) => {
+                assert!(new_entry.name == "newname");
+                assert!(new_entry.url == "newurl");
+                assert!(new_entry.user == "newusername");
+                assert!(new_entry.pass == "newpass");
+                assert!(new_entry.desc == "newdescription");
+            }
+            _ => assert!(false)
+        }
     }
 
     #[test]
     fn edit_leave_unchanged() {
         let entry = Entry::new("name".to_string(), "url".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string());
-        let new_entry = super::edit(entry, &input_with_empty_string);
-        assert!(new_entry.name == "name");
-        assert!(new_entry.url == "url");
-        assert!(new_entry.user == "user");
-        assert!(new_entry.pass == "pass");
-        assert!(new_entry.desc == "desc");
+        let edited_entry = super::edit(entry, &|| "a".to_string());
+        match edited_entry {
+            EditedEntry::Replace(new_entry) => {
+                assert!(new_entry.name == "name");
+                assert!(new_entry.url == "url");
+                assert!(new_entry.user == "user");
+                assert!(new_entry.pass == "pass");
+                assert!(new_entry.desc == "desc");
+            }
+            _ => assert!(false)
+        }
     }
 
     #[test]
@@ -783,10 +827,6 @@ mod test_shell {
 
     fn input_with_empty_string() -> String {
         "".to_string()
-    }
-
-    fn dummy_input() -> String {
-        "this is new".to_string()
     }
 
     fn input_y() -> String {
