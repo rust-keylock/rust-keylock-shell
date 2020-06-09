@@ -20,10 +20,11 @@ use std::process::Command;
 use std::sync::Mutex;
 
 use rpassword;
+use webbrowser;
+
 use rust_keylock::{AllConfigurations, Editor, Entry, EntryPresentationType, Menu, MessageSeverity, UserOption, UserSelection};
 use rust_keylock::dropbox::DropboxConfiguration;
 use rust_keylock::nextcloud::NextcloudConfiguration;
-use webbrowser;
 
 /// Editor handler driven by the shell
 pub struct EditorImpl {
@@ -337,16 +338,17 @@ fn show_main_menu() -> UserSelection {
 Main Menu:
 	e: Show (E)xisting Entries
 	s: (S)ave changes
-	p: Change (P)assword
+	p: Change Master (P)assword
 	c: Edit (C)onfiguration
 	i: (I)mport Encrypted Entries from the filesystem
 	x: E(x)port Entries to the filesystem
+	cp: (C)heck the (P)asswords quality
 	q: (Q)uit
 
 	Selection: "#;
 
     let expected_inputs_main =
-        vec!["e".to_string(), "s".to_string(), "q".to_string(), "c".to_string(), "i".to_string(), "x".to_string(), "p".to_string()];
+        vec!["e".to_string(), "s".to_string(), "q".to_string(), "c".to_string(), "i".to_string(), "x".to_string(), "cp".to_string(), "p".to_string()];
     let input = prompt_expect(message, &expected_inputs_main, &get_string_from_stdin, true);
     match input.as_str() {
         "e" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
@@ -356,6 +358,7 @@ Main Menu:
         "c" => UserSelection::GoTo(Menu::ShowConfiguration),
         "i" => UserSelection::GoTo(Menu::ImportEntries),
         "x" => UserSelection::GoTo(Menu::ExportEntries),
+        "cp" => UserSelection::CheckPasswords,
         other => panic!("Unexpected user selection '{:?}' in the Main Menu. Please, consider opening a bug to the developers.", other),
     }
 }
