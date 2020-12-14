@@ -25,6 +25,7 @@ use webbrowser;
 use rust_keylock::{AllConfigurations, Editor, Entry, EntryPresentationType, Menu, MessageSeverity, UserOption, UserSelection};
 use rust_keylock::dropbox::DropboxConfiguration;
 use rust_keylock::nextcloud::NextcloudConfiguration;
+use termcolor::{Color, ColorChoice, ColorSpec, StandardStream, WriteColor};
 
 /// Editor handler driven by the shell
 pub struct EditorImpl {
@@ -229,14 +230,20 @@ fn clear() {
 }
 
 fn show_entries_menu(entries: &[Entry], filter: &str) -> UserSelection {
+    let mut stdout = StandardStream::stdout(ColorChoice::Always);
     if !filter.is_empty() {
         println!("Entries filtered by '{}'\n\n", filter);
     }
     // Print the entries
     for (index, entry) in entries.iter().enumerate() {
+        if entry.meta.leaked_password {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
+        } else {
+            stdout.reset().unwrap();
+        }
         println!("{}. {}", index + 1, entry.name);
     }
-
+    stdout.reset().unwrap();
     // Prompt for user input
     let mut expected_inputs = Vec::new();
     for i in 0..entries.len() {
@@ -700,13 +707,13 @@ enum EditedEntry {
 mod test_shell {
     use std::sync::{Arc, Mutex};
 
-    use rust_keylock::{Editor, Entry};
+    use rust_keylock::{Editor, Entry, EntryMeta};
 
     use crate::shell::EditedEntry;
 
     #[test]
     fn edit_change() {
-        let entry = Entry::new("name".to_string(), "url".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string());
+        let entry = Entry::new("name".to_string(), "url".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string(), EntryMeta::default());
         let i = Arc::new(Mutex::new(0));
         let ci = Arc::clone(&i);
         let edited_entry = super::edit(entry, &|| {
@@ -752,7 +759,7 @@ mod test_shell {
 
     #[test]
     fn edit_leave_unchanged() {
-        let entry = Entry::new("name".to_string(), "url".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string());
+        let entry = Entry::new("name".to_string(), "url".to_string(), "user".to_string(), "pass".to_string(), "desc".to_string(), EntryMeta::default());
         let edited_entry = super::edit(entry, &|| "a".to_string());
         match edited_entry {
             EditedEntry::Replace(new_entry) => {
@@ -798,6 +805,7 @@ mod test_shell {
             pass: "pass1".to_string(),
             desc: "desc1".to_string(),
             encrypted: false,
+            meta: EntryMeta::default(),
         }, Entry {
             name: "Albatros".to_string(),
             url: "url2".to_string(),
@@ -805,6 +813,7 @@ mod test_shell {
             pass: "pass2".to_string(),
             desc: "desc2".to_string(),
             encrypted: false,
+            meta: EntryMeta::default(),
         }, Entry {
             name: "Bear".to_string(),
             url: "url3".to_string(),
@@ -812,6 +821,7 @@ mod test_shell {
             pass: "pass3".to_string(),
             desc: "desc3".to_string(),
             encrypted: false,
+            meta: EntryMeta::default(),
         }];
 
         let editor = super::new();
