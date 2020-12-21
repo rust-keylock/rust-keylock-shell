@@ -80,7 +80,7 @@ impl Editor for EditorImpl {
             prompt_expect_any("Password cannot be empty!", &get_secret_string_from_stdin);
             self.show_password_enter()
         } else {
-            UserSelection::ProvidedPassword(password, number)
+            UserSelection::new_provided_password(password, number)
         }
     }
 
@@ -98,7 +98,7 @@ impl Editor for EditorImpl {
                 let _ = prompt_expect_any("The provided numbers did not match! Press any key to try again", &get_secret_string_from_stdin);
                 self.show_change_password()
             } else {
-                UserSelection::ProvidedPassword(password1, number1)
+                UserSelection::new_provided_password(password1, number1)
             }
         }
     }
@@ -123,7 +123,7 @@ impl Editor for EditorImpl {
                 let path_input = prompt_expect_any("Please define the path: ", &get_string_from_stdin);
                 let password = prompt_expect_any("Please provide the password: ", &get_secret_string_from_stdin);
                 let number = prompt_expect_number("What is your favorite number?: ", &get_secret_string_from_stdin, true);
-                UserSelection::ImportFrom(path_input, password, number)
+                UserSelection::new_import_from(path_input, password, number)
             }
             &Menu::Current => {
                 UserSelection::GoTo(self.previous_menu().unwrap_or(Menu::Main))
@@ -317,9 +317,9 @@ Entry Menu:
         "e" => UserSelection::GoTo(Menu::EditEntry(index)),
         "d" => UserSelection::GoTo(Menu::DeleteEntry(index)),
         "r" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
-        "cu" => UserSelection::AddToClipboard(entry.url),
-        "cn" => UserSelection::AddToClipboard(entry.user),
-        "cp" => UserSelection::AddToClipboard(entry.pass),
+        "cu" => UserSelection::AddToClipboard(entry.url.to_string()),
+        "cn" => UserSelection::AddToClipboard(entry.user.to_string()),
+        "cp" => UserSelection::AddToClipboard(entry.pass.to_string()),
         other => {
             panic!("Unexpected user selection '{:?}' in the Show Entry Menu. Please, consider opening a bug to the developers.",
                    other)
@@ -482,7 +482,7 @@ fn edit_configuration<T>(nextcloud: &NextcloudConfiguration, dropbox: &DropboxCo
     let mut ncc = NextcloudConfiguration::new(
         nextcloud.server_url.to_owned(),
         nextcloud.username.to_owned(),
-        nextcloud.decrypted_password().unwrap(),
+        nextcloud.decrypted_password().unwrap().to_string(),
         nextcloud.use_self_signed_certificate).unwrap();
     let dbxc = DropboxConfiguration::new(dropbox.decrypted_token().unwrap()).unwrap();
 
@@ -513,10 +513,10 @@ r: (R)eturn to Main Menu
                 line.to_string()
             };
 
-            prompt(format!("password ({}): ", nextcloud.decrypted_password().unwrap()).as_str());
+            prompt(format!("password ({}): ", nextcloud.decrypted_password().unwrap().as_str()).as_str());
             line = get_input();
             let pass = if line.is_empty() {
-                nextcloud.decrypted_password().unwrap()
+                nextcloud.decrypted_password().unwrap().to_string()
             } else {
                 line.to_string()
             };
