@@ -165,6 +165,16 @@ impl Editor for EditorImpl {
     }
 
     fn show_message(&self, message: &str, options: Vec<UserOption>, severity: MessageSeverity) -> UserSelection {
+        let mut stdout = StandardStream::stdout(ColorChoice::Always);
+        if severity == MessageSeverity::Error {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Red))).unwrap();
+        } else if severity == MessageSeverity::Warn {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Yellow))).unwrap();
+        } else if severity == MessageSeverity::Info {
+            stdout.set_color(ColorSpec::new().set_fg(Some(Color::Blue))).unwrap();
+        } else {
+            stdout.reset().unwrap();
+        }
         let mut whole_message = format!("[{:?}] ", severity);
         whole_message.push_str(message);
         whole_message.push_str("\n\n\tPress ");
@@ -184,6 +194,7 @@ impl Editor for EditorImpl {
             whole_message.push('\'');
             whole_message.push_str(" for ");
             whole_message.push_str(&inp.1);
+            whole_message.push_str(" ");
         }
 
         whole_message.push_str("\n\tSelection: ");
@@ -204,6 +215,8 @@ impl Editor for EditorImpl {
                 &opt.short_label == selection_string
             }
         });
+
+        stdout.reset().unwrap();
 
         UserSelection::UserOption(UserOption::from(user_selection_opt.unwrap()))
     }
@@ -296,30 +309,30 @@ fn show_entry(index: usize, entry: Entry) -> UserSelection {
     println!("Description: {}", entry.desc);
 
     let expected_inputs = vec![
-        "e".to_string(),
-        "d".to_string(),
-        "r".to_string(),
-        "cu".to_string(),
-        "cn".to_string(),
-        "cp".to_string()];
+        "1".to_string(),
+        "2".to_string(),
+        "3".to_string(),
+        "4".to_string(),
+        "5".to_string(),
+        "6".to_string()];
     let message = r#"
 Entry Menu:
-	e: Edit
-	d: Delete
-	cu: (C)opy (U)RL
-	cn: (C)opy user(N)ame
-	cp:  (C)opy (P)assword
+	1: Edit
+	2: Delete
+	3: Copy URL
+	4: Copy username
+	5: Copy Password
 	r: Return
 
 	Selection: "#;
     let inner_input = prompt_expect(message, &expected_inputs, &get_string_from_stdin, true);
     match inner_input.as_str() {
-        "e" => UserSelection::GoTo(Menu::EditEntry(index)),
-        "d" => UserSelection::GoTo(Menu::DeleteEntry(index)),
+        "1" => UserSelection::GoTo(Menu::EditEntry(index)),
+        "2" => UserSelection::GoTo(Menu::DeleteEntry(index)),
+        "3" => UserSelection::AddToClipboard(entry.url.to_string()),
+        "4" => UserSelection::AddToClipboard(entry.user.to_string()),
+        "5" => UserSelection::AddToClipboard(entry.pass.to_string()),
         "r" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
-        "cu" => UserSelection::AddToClipboard(entry.url.to_string()),
-        "cn" => UserSelection::AddToClipboard(entry.user.to_string()),
-        "cp" => UserSelection::AddToClipboard(entry.pass.to_string()),
         other => {
             panic!("Unexpected user selection '{:?}' in the Show Entry Menu. Please, consider opening a bug to the developers.",
                    other)
@@ -343,29 +356,29 @@ fn delete_entry(index: usize) -> UserSelection {
 fn show_main_menu() -> UserSelection {
     let message = r#"
 Main Menu:
-	e: Show (E)xisting Entries
-	s: (S)ave changes
-	p: Change Master (P)assword
-	c: Edit (C)onfiguration
-	i: (I)mport Encrypted Entries from the filesystem
-	x: E(x)port Entries to the filesystem
-	cp: (C)heck the (P)asswords quality
-	q: (Q)uit
+	1: Show Existing Entries
+	2: Save changes
+	3: Change Master Password
+	4: Edit Configuration
+	5: Import Encrypted Entries from the filesystem
+	6: Export Entries to the filesystem
+	7: Check the Passwords quality
+	q: Quit
 
 	Selection: "#;
 
     let expected_inputs_main =
-        vec!["e".to_string(), "s".to_string(), "q".to_string(), "c".to_string(), "i".to_string(), "x".to_string(), "cp".to_string(), "p".to_string()];
+        vec!["1".to_string(), "2".to_string(), "3".to_string(), "4".to_string(), "5".to_string(), "6".to_string(), "7".to_string(), "q".to_string()];
     let input = prompt_expect(message, &expected_inputs_main, &get_string_from_stdin, true);
     match input.as_str() {
-        "e" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
-        "s" => UserSelection::GoTo(Menu::Save(false)),
+        "1" => UserSelection::GoTo(Menu::EntriesList("".to_string())),
+        "2" => UserSelection::GoTo(Menu::Save(false)),
+        "3" => UserSelection::GoTo(Menu::ChangePass),
+        "4" => UserSelection::GoTo(Menu::ShowConfiguration),
+        "5" => UserSelection::GoTo(Menu::ImportEntries),
+        "6" => UserSelection::GoTo(Menu::ExportEntries),
+        "7" => UserSelection::CheckPasswords,
         "q" => UserSelection::GoTo(Menu::Exit),
-        "p" => UserSelection::GoTo(Menu::ChangePass),
-        "c" => UserSelection::GoTo(Menu::ShowConfiguration),
-        "i" => UserSelection::GoTo(Menu::ImportEntries),
-        "x" => UserSelection::GoTo(Menu::ExportEntries),
-        "cp" => UserSelection::CheckPasswords,
         other => panic!("Unexpected user selection '{:?}' in the Main Menu. Please, consider opening a bug to the developers.", other),
     }
 }
@@ -387,25 +400,25 @@ fn edit<T>(entry: Entry, get_input: &T) -> EditedEntry
     println!("Description: {}", entry.desc);
 
     let expected_inputs = vec![
-        "n".to_string(),
-        "u".to_string(),
-        "un".to_string(),
-        "p".to_string(),
-        "g".to_string(),
-        "d".to_string(),
+        "1".to_string(),
+        "2".to_string(),
+        "3".to_string(),
+        "4".to_string(),
+        "5".to_string(),
+        "6".to_string(),
         "a".to_string(),
         "c".to_string()];
     let message = r#"
 Entry Menu:
-	n: Change (N)ame         g: (G)enerate new passphrase
-	u: Change (U)RL          d: Change (D)escription
-	un: Change (U)ser(N)ame  a: (A)ccept changes
-	p: Change (P)assword     C: (C)ancel
+	1: Change Name         5: Generate new passphrase
+	2: Change URL          6: Change Description
+	3: Change Username     a: Accept changes
+	4: Change Password     C: Cancel
 
 	Selection: "#;
     let inner_input = prompt_expect(message, &expected_inputs, &get_input, true);
     match inner_input.as_str() {
-        "n" => {
+        "1" => {
             prompt(format!("Changing Name ({}): ", entry.name).as_str());
             let line = get_input();
             let name = if line.is_empty() {
@@ -416,7 +429,7 @@ Entry Menu:
             entry.name = name;
             edit(entry, get_input)
         }
-        "u" => {
+        "2" => {
             prompt(format!("Changing URL ({}): ", entry.url).as_str());
             let line = get_input();
             let url = if line.is_empty() {
@@ -427,7 +440,7 @@ Entry Menu:
             entry.url = url;
             edit(entry, get_input)
         }
-        "un" => {
+        "3" => {
             prompt(format!("Changing Username ({}): ", entry.user).as_str());
             let line = get_input();
             let user = if line.is_empty() {
@@ -438,7 +451,7 @@ Entry Menu:
             entry.user = user;
             edit(entry, get_input)
         }
-        "p" => {
+        "4" => {
             prompt(format!("Changing Password ({}): ", entry.pass).as_str());
             let line = get_input();
             let pass = if line.is_empty() {
@@ -449,10 +462,10 @@ Entry Menu:
             entry.pass = pass;
             edit(entry, get_input)
         }
-        "g" => {
+        "5" => {
             EditedEntry::GeneratePassphrase(entry)
         }
-        "d" => {
+        "6" => {
             prompt(format!("Changing Description ({}): ", entry.desc).as_str());
             let line = get_input();
             let desc = if line.is_empty() {
@@ -487,16 +500,16 @@ fn edit_configuration<T>(nextcloud: &NextcloudConfiguration, dropbox: &DropboxCo
     let dbxc = DropboxConfiguration::new(dropbox.decrypted_token().unwrap()).unwrap();
 
     let message = r#"
-n: (N)extcloud configuration
-d: (D)ropbox configuration
-r: (R)eturn to Main Menu
+1: Nextcloud configuration
+2: Dropbox configuration
+r: Return to Main Menu
 
 	Selection: "#;
 
-    let expected_inputs_main = vec!["n".to_string(), "d".to_string(), "r".to_string()];
+    let expected_inputs_main = vec!["1".to_string(), "2".to_string(), "r".to_string()];
     let input = prompt_expect(message, &expected_inputs_main, &get_string_from_stdin, true);
     match input.as_str() {
-        "n" => {
+        "1" => {
             prompt(format!("Username ({}): ", nextcloud.username).as_str());
             let mut line = get_input();
             let url = if line.is_empty() {
@@ -537,7 +550,7 @@ r: (R)eturn to Main Menu
             ncc = NextcloudConfiguration::new(url, user, pass, use_self_signed).unwrap();
             UserSelection::UpdateConfiguration(AllConfigurations::new(ncc, dbxc))
         }
-        "d" => {
+        "2" => {
             let expected_inputs_y_n = vec!["y".to_string(), "n".to_string()];
             let dbx_url = DropboxConfiguration::dropbox_url();
 
