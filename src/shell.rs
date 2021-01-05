@@ -502,11 +502,12 @@ fn edit_configuration<T>(nextcloud: &NextcloudConfiguration, dropbox: &DropboxCo
     let message = r#"
 1: Nextcloud configuration
 2: Dropbox configuration
+3: Clear all configurations
 r: Return to Main Menu
 
 	Selection: "#;
 
-    let expected_inputs_main = vec!["1".to_string(), "2".to_string(), "r".to_string()];
+    let expected_inputs_main = vec!["1".to_string(), "2".to_string(), "3".to_string(), "r".to_string()];
     let input = prompt_expect(message, &expected_inputs_main, &get_string_from_stdin, true);
     match input.as_str() {
         "1" => {
@@ -603,6 +604,11 @@ r: Return to Main Menu
                     other => panic!("Unexpected user selection '{:?}' in the Configuration Menu. Please, consider opening a bug to the developers.", other),
                 }
             }
+        }
+        "3" => {
+            UserSelection::UpdateConfiguration(AllConfigurations::new(
+                NextcloudConfiguration::default(),
+                DropboxConfiguration::default()))
         }
         "r" => {
             UserSelection::GoTo(Menu::Main)
