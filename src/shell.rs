@@ -739,23 +739,23 @@ mod test_shell {
             let mut ii = ci.lock().unwrap();
             *ii += 1;
             if *ii == 1 {
-                "n".to_string()
+                "1".to_string()
             } else if *ii == 2 {
                 "newname".to_string()
             } else if *ii == 3 {
-                "u".to_string()
+                "2".to_string()
             } else if *ii == 4 {
                 "newurl".to_string()
             } else if *ii == 5 {
-                "un".to_string()
+                "3".to_string()
             } else if *ii == 6 {
                 "newusername".to_string()
             } else if *ii == 7 {
-                "p".to_string()
+                "4".to_string()
             } else if *ii == 8 {
                 "newpass".to_string()
             } else if *ii == 9 {
-                "d".to_string()
+                "6".to_string()
             } else if *ii == 10 {
                 "newdescription".to_string()
             } else if *ii == 11 {
