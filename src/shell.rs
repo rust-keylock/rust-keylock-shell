@@ -658,7 +658,7 @@ fn prompt_expect<'a, T>(message: &str, expected_inputs: &'a [String], get_input:
             prompt(error_message.as_str());
             prompt_expect(message, expected_inputs, get_input, retry)
         } else {
-            panic!(error_message)
+            panic!("{}", error_message)
         }
     }
 }
