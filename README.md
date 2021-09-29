@@ -1,4 +1,4 @@
-![Build Status](https://travis-ci.org/rust-keylock/rust-keylock-shell.svg?branch=master)
+![Build Status](https://travis-ci.com/rust-keylock/rust-keylock-shell.svg?branch=master)
 [![crates.io](https://img.shields.io/crates/v/rust_keylock_shell.svg)](https://crates.io/crates/rust_keylock_shell)
 
 ___rust-keylock___ is a password manager and its goals are to be:
