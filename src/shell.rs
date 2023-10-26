@@ -712,7 +712,7 @@ fn get_string_from_stdin_no_trim() -> String {
 }
 
 fn get_secret_string_from_stdin() -> String {
-    rpassword::prompt_password_stdout("").unwrap()
+    rpassword::prompt_password("").unwrap()
 }
 
 #[derive(Debug, PartialEq, Eq)]
