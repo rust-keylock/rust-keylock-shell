@@ -511,7 +511,7 @@ r: Return to Main Menu
     let input = prompt_expect(message, &expected_inputs_main, &get_string_from_stdin, true);
     match input.as_str() {
         "1" => {
-            prompt(format!("Username ({}): ", nextcloud.username).as_str());
+            prompt(format!("Server URL ({}): ", nextcloud.server_url).as_str());
             let mut line = get_input();
             let url = if line.is_empty() {
                 nextcloud.server_url.clone()
